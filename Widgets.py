@@ -11,37 +11,54 @@ class Point:
 
 
 class WidgetCmp(ABC):
+    def __init__(self, screen: pygame.Surface, rect: pygame.Rect):
+        self.screen = screen
+        self.rect = rect
+
     @abstractmethod
     def __contains__(self, p: Point) -> bool:
-        pass
+        p = self.get_local_point(p)
+        return (
+                self.rect.left < p.x < self.rect.right and
+                self.rect.top < p.y < self.rect.bottom
+        )
 
     @abstractmethod
     def display(self) -> None:
         pass
 
     @abstractmethod
-    def l_down(self) -> None:
+    def mouse_move(self, p: Point):
         pass
 
     @abstractmethod
-    def l_up(self) -> None:
+    def l_down(self, p: Point) -> None:
         pass
 
     @abstractmethod
-    def l_release(self) -> None:
+    def l_up(self, p: Point) -> None:
         pass
 
-    def get_global_coords(self, rect: pygame.Rect) -> pygame.Rect:
+    def get_local_rect(self, rect: pygame.Rect) -> pygame.Rect:
+        raise NotImplementedError()
+
+    def get_local_point(self, p: Point) -> Point:
+        raise NotImplementedError()
+
+    def get_global_rect(self, rect: pygame.Rect) -> pygame.Rect:
+        raise NotImplementedError()
+
+    def get_global_point(self, p: Point) -> Point:
         raise NotImplementedError()
 
 
-class Widget(ABC):
+class Widget:
     def __init__(
             self,
             screen: pygame.Surface,
             rect: pygame.Rect,
             cmp: List[WidgetCmp] = None,
-            color: Tuple[int] = None
+            color: Tuple[int, int, int] = None
     ):
         """
         :param rect: Panel rectangle in (left, top, right, bottom) format
@@ -55,7 +72,10 @@ class Widget(ABC):
         else:
             self.cmp = cmp
             for e in self.cmp:
-                e.get_global_coords = self.get_global_coords
+                e.get_local_rect = self.get_local_rect
+                e.get_local_point = self.get_local_point
+                e.get_global_rect = self.get_global_rect
+                e.get_global_point = self.get_global_point
         self.color = color
 
     def __contains__(self, p: Point) -> bool:
@@ -65,12 +85,14 @@ class Widget(ABC):
         :param p: point to check
         :return: boolean result
         """
-        if (
+        return (
                 self.rect.left < p.x < self.rect.right and
                 self.rect.top < p.y < self.rect.bottom
-        ):
-            return True
-        return False
+        )
+
+    def resize(self, rect: pygame.Rect):
+        # TODO: Resize widget components
+        self.rect = rect
 
     def display(self) -> None:
         pygame.draw.rect(self.screen, self.color, self.rect)
@@ -78,24 +100,50 @@ class Widget(ABC):
         for e in self.cmp:
             e.display()
 
-    @abstractmethod
-    def l_down(self) -> None:
-        pass
+    def mouse_move(self, p: Point) -> None:
+        for e in self.cmp:
+            if p in e:
+                e.mouse_move(p)
+                return
 
-    @abstractmethod
-    def l_up(self) -> None:
-        pass
+    def l_down(self, p: Point) -> None:
+        for e in self.cmp:
+            if p in e:
+                e.l_down(p)
+                return
 
-    @abstractmethod
-    def l_release(self) -> None:
-        pass
+    def l_up(self, p: Point) -> None:
+        for e in self.cmp:
+            if p in e:
+                e.l_up(p)
+                return
 
-    def get_global_coords(self, rect: pygame.Rect) -> pygame.Rect:
+    def get_local_rect(self, rect: pygame.Rect) -> pygame.Rect:
+        return pygame.Rect(
+            rect.left - self.rect.left,
+            rect.top - self.rect.top,
+            rect.width,
+            rect.height
+        )
+
+    def get_local_point(self, p: Point) -> Point:
+        return Point(
+            p.x - self.rect.left,
+            p.y - self.rect.top
+        )
+
+    def get_global_rect(self, rect: pygame.Rect) -> pygame.Rect:
         return pygame.Rect(
             self.rect.left + rect.left,
             self.rect.top + rect.top,
             rect.width,
             rect.height
+        )
+
+    def get_global_point(self, p: Point) -> Point:
+        return Point(
+            self.rect.left + p.x,
+            self.rect.top + p.y
         )
 
 
@@ -106,11 +154,5 @@ class EyePromptWidget(Widget):
     def display(self) -> None:
         pass
 
-    def l_down(self) -> None:
-        pass
-
-    def l_up(self) -> None:
-        pass
-
-    def l_release(self) -> None:
+    def start(self) -> None:
         pass

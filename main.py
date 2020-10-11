@@ -11,10 +11,9 @@ class Palette:
 def onPaint(screen, panels: List[Widget]):
     screen.fill(Palette.background)
 
-    p = pygame.mouse.get_pos()
+    p = Point(*pygame.mouse.get_pos())
     for e in panels:
-        if p in e:
-            e.display()
+        e.display()
 
 
 def main():
@@ -27,11 +26,17 @@ def main():
     icon = pygame.image.load("./assets/HSL-32.png")
     pygame.display.set_icon(icon)
 
-    screen = pygame.display.set_mode((14*screenSize[0]//16, 14*screenSize[1]//16), flags=pygame.RESIZABLE)
+    size = (14*screenSize[0]//16, 14*screenSize[1]//16)
+    screen = pygame.display.set_mode(size, flags=pygame.RESIZABLE)
     pygame.display.set_caption("HSL | Eye Tracking Data Collection")
 
     # widget initialization
-
+    options = Widget(
+        screen,
+        pygame.Rect(4, 6, size[0] - 8, 96),
+        list(),
+        Palette.widget
+    )
 
     run = True
     while run:
@@ -43,7 +48,7 @@ def main():
                 screen.fill(Palette.background)
                 screen = pygame.display.set_mode(event.size, flags=pygame.RESIZABLE)
 
-        onPaint(screen, [])
+        onPaint(screen, [options])
         pygame.display.flip()
 
 
