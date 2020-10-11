@@ -1,59 +1,15 @@
-from abc import ABC, abstractmethod
-from typing import List, Tuple
+import os
 
-import pygame
-
-pAP = None
-background = (0, 0, 0)
+from Widgets import *
 
 
-class Point:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
+class Palette:
+    background = (0, 0, 150)
+    widget = (50, 50, 50)
 
 
-class Panel(ABC):
-    def __init__(self, rect: pygame.Rect):
-        """
-        :param rect: Panel rectangle in (left, top, right, bottom) format
-        """
-        self.rect = rect
-
-    @abstractmethod
-    def __contains__(self, p: Point):
-        """
-        Checks if the given point is within the panel
-
-        :param p: point to check
-        :return: boolean result
-        """
-        if (
-                self.rect.left < p.x < self.rect.right and
-                self.rect.top < p.y < self.rect.bottom
-        ):
-            return True
-        return False
-
-    @abstractmethod
-    def display(self) -> None:
-        pass
-
-    @abstractmethod
-    def l_down(self) -> None:
-        pass
-
-    @abstractmethod
-    def l_up(self) -> None:
-        pass
-
-    @abstractmethod
-    def l_release(self) -> None:
-        pass
-
-
-def onPaint(screen, panels: List[Panel]):
-    screen.fill(background)
+def onPaint(screen, panels: List[Widget]):
+    screen.fill(Palette.background)
 
     p = pygame.mouse.get_pos()
     for e in panels:
@@ -62,8 +18,20 @@ def onPaint(screen, panels: List[Panel]):
 
 
 def main():
-    screen = pygame.display.set_mode(flags=pygame.RESIZABLE)
-    pygame.display.set_caption("HMS : Eye Tracking Data Collection")
+    # pygame initialization
+    pygame.init()
+    info = pygame.display.Info()
+    screenSize = (info.current_w, info.current_h)
+
+    os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (screenSize[0]//16, screenSize[1]//16)
+    icon = pygame.image.load("./assets/HSL-32.png")
+    pygame.display.set_icon(icon)
+
+    screen = pygame.display.set_mode((14*screenSize[0]//16, 14*screenSize[1]//16), flags=pygame.RESIZABLE)
+    pygame.display.set_caption("HSL | Eye Tracking Data Collection")
+
+    # widget initialization
+
 
     run = True
     while run:
@@ -72,7 +40,7 @@ def main():
                 run = False
 
             if event.type == pygame.VIDEORESIZE:
-                screen.fill(background)
+                screen.fill(Palette.background)
                 screen = pygame.display.set_mode(event.size, flags=pygame.RESIZABLE)
 
         onPaint(screen, [])
