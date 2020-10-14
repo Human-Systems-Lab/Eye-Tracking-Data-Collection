@@ -1,22 +1,34 @@
+import os
 import sys
+import platform
 import time
 import threading
+import random
+import json
 
-from PyQt5 import QtWidgets
 from PyQt5 import QtGui
 from PyQt5 import QtCore
 
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QVBoxLayout
+from PyQt5.QtWidgets import QHBoxLayout
+from PyQt5.QtWidgets import QDockWidget
 from PyQt5.QtWidgets import QPushButton
-from PyQt5.QtWidgets import QGridLayout
+from PyQt5.QtWidgets import QComboBox
+from PyQt5.QtWidgets import QTextEdit
+from PyQt5.QtWidgets import QLineEdit
+from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QWidget
 
-from PyQt5.QtGui import QIcon
 from PyQt5.QtGui import QKeyEvent
 from PyQt5.QtCore import Qt
 
+import cv2
+
 from serialization import Serializer
+
+diskDir = ""
 
 
 class ResourceLock:
@@ -54,6 +66,7 @@ class ResourceLock:
 class EyePrompt(QWidget):
     def __init__(self, *args, **kwargs):
         super(EyePrompt, self).__init__(*args, **kwargs)
+        self.setCursor(Qt.BlankCursor)
 
         self._runningPrompts = False
         self._runningPromptsLock = ResourceLock()
@@ -66,6 +79,14 @@ class EyePrompt(QWidget):
 
         self._startTime = None
         self._prompt_loc = None
+
+        self.blackBrush = QtGui.QBrush()
+        self.blackBrush.setColor(QtGui.QColor("black"))
+        self.blackBrush.setStyle(Qt.SolidPattern)
+
+        self.redBrush = QtGui.QBrush()
+        self.redBrush.setColor(QtGui.QColor("red"))
+        self.redBrush.setStyle(Qt.SolidPattern)
 
     @property
     def runningPrompts(self) -> bool:
@@ -119,66 +140,183 @@ class EyePrompt(QWidget):
         self.dataThread.join()
 
     def collectData(self):
-        # TODO: proper variable initialization
-        cycleNum = 0
-        self._prompt_loc = (0, 0)
+        cycleNum = 1
+        self._prompt_loc = (
+            random.uniform(0, 1),
+            random.uniform(0, 1)
+        )
+        cap = cv2.VideoCapture(0)
 
         self.runningPrompts = True
         while self.runningPrompts:
-            if self._startTime - cycleNum * self.cycleTime > 0:
-                self.cycleNum += 1
-                # TODO: proper randomization of the prompt
-                self._prompt_loc = (0, 0)
+            # assumption is that the time it take to run this loop is much less than self.cycleLength
+            if time.time() > self._startTime + cycleNum * self.cycleLength:
+                cycleNum += 1
+                self._prompt_loc = (
+                    random.uniform(0, 1),
+                    random.uniform(0, 1)
+                )
+                self.update()
 
-            # TODO: pass the current webcam capture with the prompt location to the serializer
+            ret, frame = cap.read()
+            if not ret:
+                continue
+
+            if self.serializer is not None:
+                self.serializer.handle_data(self._prompt_loc, frame)
+
+        cap.release()
 
     def paintEvent(self, e: QtGui.QPaintEvent) -> None:
         painter = QtGui.QPainter(self)
-        brush = QtGui.QBrush()
-        brush.setColor(QtGui.QColor("black"))
-        brush.setStyle(Qt.SolidPattern)
-        rect = QtCore.QRect(0, 0, painter.device().width(), painter.device().height())
-        painter.fillRect(rect, brush)
 
+        size = (painter.device().width(), painter.device().height())
+        rect = QtCore.QRect(0, 0, *size)
+        painter.fillRect(rect, self.blackBrush)
+
+        dim = 10
+        painter.setBrush(self.redBrush)
         if self.runningPrompts:
-            # prompt the user
-            pass
+            x = int(self._prompt_loc[0] * size[0])
+            y = int(self._prompt_loc[1] * size[1])
+            painter.drawEllipse(x, y, dim, dim)
         else:
             pass
-
-
-class MainWindow(QWidget):
-    def __init__(self):
-        super(MainWindow, self).__init__()
-
-        self.setWindowIcon(QIcon("assets/HSL-logo.png"))
-        self.setWindowTitle("HSL | Eye Tracking Data Collection")
-        self.setGeometry(100, 100, 500, 500)
-
-        self.baseLayout = QGridLayout()
-        self.eyePrompt = EyePrompt()
-        self.baseLayout.addWidget(self.eyePrompt, 0, 0)
-        self.baseLayout.addWidget(QPushButton('start'), 1, 1)
-        self.baseLayout.setRowStretch(0, 3)
-        self.baseLayout.setColumnStretch(0, 3)
-
-        self.setLayout(self.baseLayout)
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         k = e.key()
-        print(k)
-        if k == ord(' '):
-            print("space!")
-        elif k == Qt.Key_Return:
-            print("Enter?")
-        elif k == Qt.Key_Escape:
-            if self.isFullScreen():
-                self.showNormal()
-        else:
-            print(k)
+        if k == Qt.Key_Escape:
+            self.endPrompts()
+            self.close()
+
+
+class DataOutputOptions(QWidget):
+    def __init__(self):
+        super(DataOutputOptions, self).__init__()
+
+        # Loading configurations and selecting a current configuration
+        self.configs = dict()
+        self.currentConfig = None
+        for e in os.listdir(os.path.join(diskDir, "DataOutputConfigurations")):
+            if e.split(".")[-1] == "json":
+                if self.currentConfig is None:
+                    self.currentConfig = e[:-5]
+                with open(os.path.join(diskDir, "DataOutputConfigurations", e)) as f:
+                    self.configs[e[:-5]] = json.load(f)  # e[:-5] will remove the .json extension from the file name
+
+        self.configCombos = None
+        self.newConfig = None
+        self.nameLabel = None
+        self.nameBox = None
+
+        self.buildLayout()
+        self.rebuildLayout = False
+
+    def paintEvent(self, a0: QtGui.QPaintEvent) -> None:
+        if self.rebuildLayout:
+            self.buildLayout()
+            self.rebuildLayout = False
+        super().paintEvent(a0)
+
+    def buildLayout(self):
+        layout = QVBoxLayout()
+
+        self.configCombos = QComboBox()
+        self.configCombos.setMinimumWidth(100)
+        # noinspection PyUnresolvedReferences
+        self.configCombos.changeEvent.connect(self.onSelect)
+        for k in self.configs.keys():
+            self.configCombos.addItem(k)
+        self.newConfig = QPushButton("+")
+        self.newConfig.setMaximumWidth(20)
+
+        selectionLayout = QHBoxLayout()
+        selectionLayout.addWidget(self.configCombos)
+        selectionLayout.addWidget(self.newConfig)
+        selectionWidget = QWidget()
+        selectionWidget.setLayout(selectionLayout)
+
+        self.nameLabel = QLabel("Configuration Name: ")
+        self.nameLabel.setMinimumWidth(100)
+        self.nameLabel.setMaximumWidth(100)
+        self.nameBox = QLineEdit(self.currentConfig)
+        # noinspection PyUnresolvedReferences
+        self.nameBox.returnPressed.connect(self.onNameChange)
+
+        nameLayout = QHBoxLayout()
+        nameLayout.addWidget(self.nameLabel)
+        nameLayout.addWidget(self.nameBox)
+        nameWidget = QWidget()
+        nameWidget.setLayout(nameLayout)
+
+        layout.addWidget(selectionWidget)
+        layout.addWidget(nameWidget)
+        self.setLayout(layout)
+
+    def onSelect(self, i):
+        self.currentConfig = list(self.configs)[i]
+        self.rebuildLayout = True
+        self.update()
+
+    def onNameChange(self):
+        nName = self.nameBox.text()
+        self.configs[nName] = self.configs[self.currentConfig]
+        del self.configs[self.currentConfig]
+        self.currentConfig = nName
+        self.configCombos.setItemText(self.configCombos.currentIndex(), nName)
+
+
+class MainWindow(QMainWindow):
+    def __init__(self, parent=None):
+        super(MainWindow, self).__init__(parent)
+        self.setCursor(Qt.ArrowCursor)
+        self.eyePrompt = EyePrompt()
+
+        self.setWindowIcon(QtGui.QIcon("assets/HSL-logo.png"))
+        self.setWindowTitle("HSL | Eye Tracking Data Collection")
+        self.setGeometry(100, 100, 900, 900)
+
+        bar = self.menuBar()
+        file = bar.addMenu("File")
+        file.addAction("New")
+        file.addAction("Save")
+
+        # Building the Data Output widget
+        self.dataOutput = QDockWidget("Data Output", self)
+        self.dataOutputOptions = DataOutputOptions()
+        self.dataOutput.setWidget(self.dataOutputOptions)
+        self.dataOutput.setFloating(False)
+
+        self.setCentralWidget(QTextEdit())
+        self.addDockWidget(Qt.RightDockWidgetArea, self.dataOutput)
+
+    def keyPressEvent(self, e: QKeyEvent) -> None:
+        k = e.key()
+        if k == Qt.Key_Return:
+            pass
+            # self.eyePrompt.showFullScreen()
+            # self.eyePrompt.cycleLength = 2
+            # self.eyePrompt.startPrompts()
 
 
 def main():
+    global diskDir
+    plat = platform.system()
+    if plat == "Windows":
+        diskDir = os.path.join(os.getenv("APPDATA"), "HSL")
+    elif plat == "Linux":
+        diskDir = os.path.join(os.path.expanduser("~"), ".HSL")
+    else:
+        print("Unsupported operating system: %s" % plat)
+        print("This software only supports Windows and Linux")
+        exit(1)
+
+    if not os.path.isdir(diskDir):
+        os.mkdir(diskDir)
+    diskDir = os.path.join(diskDir, "EyeTracking-DataCollection")
+    if not os.path.isdir(diskDir):
+        os.mkdir(diskDir)
+
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()

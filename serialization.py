@@ -17,7 +17,7 @@ class Serializer(ABC):
             print(f'exc_traceback: {exc_tb}')
 
     @abstractmethod
-    def handle_data(self, point: Tuple[float], frame) -> None:
+    def handle_data(self, point: Tuple[float, float], frame) -> None:
         """
         Serializes a frame of data to the selected location
 
@@ -36,7 +36,7 @@ class DiskSerializer(Serializer):
     def __exit__(self, exc_type, exc_val, exc_tb):
         super().__exit__(exc_type, exc_val, exc_tb)
 
-    def handle_data(self, point: Tuple[float], frame) -> None:
+    def handle_data(self, point: Tuple[float, float], frame) -> None:
         raise NotImplementedError()
 
 
@@ -55,5 +55,5 @@ class S3Serializer(Serializer):
     def __exit__(self, exc_type, exc_val, exc_tb):
         super().__exit__(exc_type, exc_val, exc_tb)
 
-    def handle_data(self, point: Tuple[float], frame) -> None:
+    def handle_data(self, point: Tuple[float, float], frame) -> None:
         raise NotImplementedError()
