@@ -4,21 +4,14 @@ import platform
 import time
 import threading
 import random
-import json
 
 from PyQt5 import QtGui
 from PyQt5 import QtCore
 
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMainWindow
-from PyQt5.QtWidgets import QVBoxLayout
-from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QDockWidget
-from PyQt5.QtWidgets import QPushButton
-from PyQt5.QtWidgets import QComboBox
 from PyQt5.QtWidgets import QTextEdit
-from PyQt5.QtWidgets import QLineEdit
-from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QWidget
 
 from PyQt5.QtGui import QKeyEvent
@@ -27,6 +20,7 @@ from PyQt5.QtCore import Qt
 import cv2
 
 from serialization import Serializer
+from OutputWidget import DataOutputOptions
 
 diskDir = ""
 
@@ -190,82 +184,6 @@ class EyePrompt(QWidget):
             self.close()
 
 
-class DataOutputOptions(QWidget):
-    def __init__(self):
-        super(DataOutputOptions, self).__init__()
-
-        # Loading configurations and selecting a current configuration
-        self.configs = dict()
-        self.currentConfig = None
-        for e in os.listdir(os.path.join(diskDir, "DataOutputConfigurations")):
-            if e.split(".")[-1] == "json":
-                if self.currentConfig is None:
-                    self.currentConfig = e[:-5]
-                with open(os.path.join(diskDir, "DataOutputConfigurations", e)) as f:
-                    self.configs[e[:-5]] = json.load(f)  # e[:-5] will remove the .json extension from the file name
-
-        self.configCombos = None
-        self.newConfig = None
-        self.nameLabel = None
-        self.nameBox = None
-
-        self.buildLayout()
-        self.rebuildLayout = False
-
-    def paintEvent(self, a0: QtGui.QPaintEvent) -> None:
-        if self.rebuildLayout:
-            self.buildLayout()
-            self.rebuildLayout = False
-        super().paintEvent(a0)
-
-    def buildLayout(self):
-        layout = QVBoxLayout()
-
-        self.configCombos = QComboBox()
-        self.configCombos.setMinimumWidth(100)
-        # noinspection PyUnresolvedReferences
-        self.configCombos.changeEvent.connect(self.onSelect)
-        for k in self.configs.keys():
-            self.configCombos.addItem(k)
-        self.newConfig = QPushButton("+")
-        self.newConfig.setMaximumWidth(20)
-
-        selectionLayout = QHBoxLayout()
-        selectionLayout.addWidget(self.configCombos)
-        selectionLayout.addWidget(self.newConfig)
-        selectionWidget = QWidget()
-        selectionWidget.setLayout(selectionLayout)
-
-        self.nameLabel = QLabel("Configuration Name: ")
-        self.nameLabel.setMinimumWidth(100)
-        self.nameLabel.setMaximumWidth(100)
-        self.nameBox = QLineEdit(self.currentConfig)
-        # noinspection PyUnresolvedReferences
-        self.nameBox.returnPressed.connect(self.onNameChange)
-
-        nameLayout = QHBoxLayout()
-        nameLayout.addWidget(self.nameLabel)
-        nameLayout.addWidget(self.nameBox)
-        nameWidget = QWidget()
-        nameWidget.setLayout(nameLayout)
-
-        layout.addWidget(selectionWidget)
-        layout.addWidget(nameWidget)
-        self.setLayout(layout)
-
-    def onSelect(self, i):
-        self.currentConfig = list(self.configs)[i]
-        self.rebuildLayout = True
-        self.update()
-
-    def onNameChange(self):
-        nName = self.nameBox.text()
-        self.configs[nName] = self.configs[self.currentConfig]
-        del self.configs[self.currentConfig]
-        self.currentConfig = nName
-        self.configCombos.setItemText(self.configCombos.currentIndex(), nName)
-
-
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -283,7 +201,7 @@ class MainWindow(QMainWindow):
 
         # Building the Data Output widget
         self.dataOutput = QDockWidget("Data Output", self)
-        self.dataOutputOptions = DataOutputOptions()
+        self.dataOutputOptions = DataOutputOptions(diskDir)
         self.dataOutput.setWidget(self.dataOutputOptions)
         self.dataOutput.setFloating(False)
 
