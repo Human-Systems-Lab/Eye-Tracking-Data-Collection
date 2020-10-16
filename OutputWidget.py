@@ -1,6 +1,7 @@
 import os
 import json
 from typing import Dict, Any
+from functools import wraps
 
 from PyQt5 import QtGui
 
@@ -23,6 +24,23 @@ class S3TargetOptions(QWidget):
     pass
 
 
+def checkReady(f):
+    @wraps(f)
+    def func(self, *args, **kwargs):
+        if (
+                self.configCombos is None or
+                self.newConfig is None or
+                self.delConfig is None or
+                self.nameLabel is None or
+                self.nameBox is None or
+                self.optionsLabel is None
+        ):
+            return
+
+        return f(self, *args, **kwargs)
+    return func
+
+
 class DataOutputOptions(QWidget):
     def __init__(self, diskDir: str):
         super(DataOutputOptions, self).__init__()
@@ -41,32 +59,30 @@ class DataOutputOptions(QWidget):
 
         self.configCombos = None
         self.newConfig = None
+        self.delConfig = None
         self.nameLabel = None
         self.nameBox = None
         self.optionsLabel = None
 
         self.buildLayout()
-        self.rebuildLayout = False
-
-    def paintEvent(self, a0: QtGui.QPaintEvent) -> None:
-        if self.rebuildLayout:
-            self.buildLayout()
-            self.rebuildLayout = False
-        super().paintEvent(a0)
 
     def buildLayout(self):
         layout = QVBoxLayout()
 
         self.configCombos = QComboBox()
         self.configCombos.setMinimumWidth(100)
+        # self.configCombos.removeItem()
         for k in self.configs.keys():
             self.configCombos.addItem(k)
         self.newConfig = QPushButton("+")
         self.newConfig.setMaximumWidth(20)
+        self.delConfig = QPushButton("-")
+        self.delConfig.setMaximumWidth(20)
 
         selectionLayout = QHBoxLayout()
         selectionLayout.addWidget(self.configCombos)
         selectionLayout.addWidget(self.newConfig)
+        selectionLayout.addWidget(self.delConfig)
         selectionWidget = QWidget()
         selectionWidget.setLayout(selectionLayout)
 
@@ -98,18 +114,50 @@ class DataOutputOptions(QWidget):
     def setConnections(self):
         self.configCombos.currentIndexChanged.connect(self.onSelect)
         self.nameBox.returnPressed.connect(self.onNameChange)
+        self.newConfig.pressed.connect(self.onNewConfig)
+        self.delConfig.pressed.connect(self.onDelConfig)
 
+    @checkReady
     def onSelect(self, i: int) -> None:
-        if self.nameBox is None:
+        if i == -1:
+            self.currentConfig = ""
+            self.nameBox.setText("")
+            self.nameBox.setEnabled(False)
+            self.optionsLabel.setText("")
             return
 
         self.currentConfig = self.configCombos.itemText(i)
         self.nameBox.setText(self.currentConfig)
         self.optionsLabel.setText("%s Output Options:" % self.configs[self.currentConfig]["type"])
+        self.nameBox.setEnabled(True)
 
+    @checkReady
     def onNameChange(self):
         nName = self.nameBox.text()
         self.configs[nName] = self.configs[self.currentConfig]
         del self.configs[self.currentConfig]
         self.currentConfig = nName
         self.configCombos.setItemText(self.configCombos.currentIndex(), nName)
+
+    @checkReady
+    def onNewConfig(self):
+        self.currentConfig = "configuration-" + str(len(self.configs) + 1)
+        self.configs[self.currentConfig] = {"type": "Disk"}
+        self.nameBox.setText(self.currentConfig)
+        self.configCombos.addItem(self.currentConfig)
+        self.configCombos.setCurrentIndex(len(self.configs) - 1)
+
+    @checkReady
+    def onDelConfig(self):
+        i = list(self.configs).index(self.currentConfig)
+        del self.configs[self.currentConfig]
+        self.configCombos.removeItem(i)
+        if i != 0:
+            i -= 1
+        elif len(self.configCombos) == 0:
+            self.currentConfig = ""
+            self.nameBox.setText("")
+            self.optionsLabel.setText("")
+            return
+
+        self.currentConfig = list(self.configs)[i]
