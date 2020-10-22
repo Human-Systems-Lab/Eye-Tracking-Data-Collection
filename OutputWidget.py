@@ -156,7 +156,7 @@ class DataOutputOptions(QWidget):
 
         self.name_label = QLabel("Configuration Name: ")
         self.name_label.setMinimumWidth(100)
-        self.name_label.setMaximumWidth(100)
+        self.name_label.setMaximumWidth(1000)
         self.name_box = QLineEdit(self.current_config)
         self.name_box.setMaxLength(50)
 
