@@ -200,13 +200,16 @@ class MainWindow(QMainWindow):
         file.addAction("Save")
 
         # Building the Data Output widget
-        self.dataOutput = QDockWidget("Data Output", self)
-        self.dataOutputOptions = DataOutputOptions(diskDir)
-        self.dataOutput.setWidget(self.dataOutputOptions)
-        self.dataOutput.setFloating(False)
+        self.data_output = QDockWidget("Data Output", self)
+        self.data_output_options = DataOutputOptions(diskDir)
+        self.data_output.setWidget(self.data_output_options)
+        self.data_output.setFloating(False)
 
         self.setCentralWidget(QTextEdit())
-        self.addDockWidget(Qt.RightDockWidgetArea, self.dataOutput)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.data_output)
+
+    def shutdown(self):
+        self.data_output_options.shutdown()
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         k = e.key()
@@ -238,7 +241,9 @@ def main():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec_())
+    e_code = app.exec_()
+    window.shutdown()
+    sys.exit(e_code)
 
 
 if __name__ == "__main__":
