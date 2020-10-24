@@ -1,6 +1,6 @@
 import os
 import json
-import platform
+from typing import Optional
 from functools import wraps
 
 from PyQt5.QtWidgets import QVBoxLayout
@@ -24,7 +24,7 @@ def valid_fmt(fmt: str) -> bool:
         if e in char_counts:
             char_counts[e] += 1
         else:
-            char_counts[e] = 0
+            char_counts[e] = 1
 
     for k, v in (
             ('Y', 4),
@@ -194,6 +194,8 @@ class DiskTargetOptions(TargetOptions):
         new_img_fmt = self.img_fmt_box.text()
         if valid_fmt(new_img_fmt):
             self.img_fmt = new_img_fmt
+        else:
+            self.img_fmt_box.setText(self.img_fmt)
 
     @check_ready
     def on_lbl_dir_box(self):
@@ -204,6 +206,8 @@ class DiskTargetOptions(TargetOptions):
         new_lbl_fmt = self.lbl_fmt_box.text()
         if valid_fmt(new_lbl_fmt):
             self.lbl_fmt = new_lbl_fmt
+        else:
+            self.lbl_fmt_box.setText(self.lbl_fmt)
 
     def get_config(self):
         return {
@@ -254,25 +258,94 @@ class DataOutputOptions(QWidget):
 
         # Loading configurations and selecting a current configuration
         self.configs = dict()
-        self.current_config = None
+        self.current_config = ""
         for e in os.listdir(os.path.join(self.disk_dir, "DataOutputConfigurations")):
             if e.split(".")[-1] == "json":
-                if self.current_config is None:
+                if not self.current_config:
                     self.current_config = e[:-5]
                 with open(os.path.join(self.disk_dir, "DataOutputConfigurations", e)) as f:
                     self.configs[e[:-5]] = json.load(f)  # e[:-5] will remove the .json extension from the file name
 
-        self.config_select = None
-        self.new_config = None
-        self.del_config = None
-        self.name_label = None
-        self.name_box = None
-        self.target_select = None
+        self.config_select = QComboBox()
+        self.config_select.setMinimumWidth(100)
+        # self.configCombos.removeItem()
+        for k in self.configs.keys():
+            self.config_select.addItem(k)
+        self.new_config = QPushButton("+")
+        self.new_config.setMaximumWidth(20)
+        self.del_config = QPushButton("-")
+        self.del_config.setMaximumWidth(20)
 
-        self.target_options = None
+        selection_layout = QHBoxLayout()
+        selection_layout.addWidget(self.config_select)
+        selection_layout.addWidget(self.new_config)
+        selection_layout.addWidget(self.del_config)
+        selection_widget = QWidget()
+        selection_widget.setLayout(selection_layout)
 
-        self.build_layout()
+        self.name_label = QLabel("Configuration Name: ")
+        self.name_label.setMinimumWidth(100)
+        self.name_label.setMaximumWidth(100)
+        self.name_box = QLineEdit(self.current_config)
+        self.name_box.setMaxLength(50)
+
+        name_layout = QHBoxLayout()
+        name_layout.addWidget(self.name_label)
+        name_layout.addWidget(self.name_box)
+        name_widget = QWidget()
+        name_widget.setLayout(name_layout)
+
+        target_label = QLabel("Output target: ")
+        self.target_select = QComboBox()
+        for e in self.targets:
+            self.target_select.addItem(e)
+        if self.current_config:
+            self.target_select.setCurrentIndex(self.targets.index(self.configs[self.current_config]["type"]))
+
+        target_layout = QHBoxLayout()
+        target_layout.addWidget(target_label)
+        target_layout.addWidget(self.target_select)
+        target_widget = QWidget()
+        target_widget.setLayout(target_layout)
+
+        if self.current_config:
+            self.target_options = self.target_widgets[self.targets.index(self.configs[self.current_config]["type"])](
+                self.configs[self.current_config])
+        else:
+            self.target_options = QWidget()
+
+        layout = QVBoxLayout()
+        layout.addWidget(selection_widget)
+        layout.addWidget(name_widget)
+        layout.addWidget(target_widget)
+        layout.addWidget(self.target_options)
+        layout.setAlignment(Qt.AlignTop)
+        self.setLayout(layout)
+
         self.set_connections()
+
+        if not self.current_config:
+            self.del_config.setEnabled(False)
+            self.name_box.setEnabled(False)
+            self.target_select.setEnabled(False)
+
+            self.layout().removeWidget(self.target_options)
+            self.target_options.setHidden(True)
+            self.target_options.destroy()
+            self.target_options = QWidget()
+            self.layout().addWidget(self.target_options)
+            self.update()
+
+    def shutdown(self):
+        # Deleting old configurations
+        for e in os.listdir(os.path.join(self.disk_dir, "DataOutputConfigurations")):
+            if e.split(".")[-1] == "json":
+                os.remove(os.path.join(self.disk_dir, "DataOutputConfigurations", e))
+
+        # Serializing the new configurations
+        for k in self.configs:
+            with open(os.path.join(self.disk_dir, "DataOutputConfigurations", k + ".json"), "w") as f:
+                json.dump(self.configs[k], f, indent=4)
 
     def check_ready(f):
         """
@@ -296,62 +369,6 @@ class DataOutputOptions(QWidget):
 
         return func
 
-    def build_layout(self):
-        """
-        Initializes all the components of the DataOutputOptions widget
-        """
-        self.config_select = QComboBox()
-        self.config_select.setMinimumWidth(100)
-        # self.configCombos.removeItem()
-        for k in self.configs.keys():
-            self.config_select.addItem(k)
-        self.new_config = QPushButton("+")
-        self.new_config.setMaximumWidth(20)
-        self.del_config = QPushButton("-")
-        self.del_config.setMaximumWidth(20)
-
-        selectionLayout = QHBoxLayout()
-        selectionLayout.addWidget(self.config_select)
-        selectionLayout.addWidget(self.new_config)
-        selectionLayout.addWidget(self.del_config)
-        selectionWidget = QWidget()
-        selectionWidget.setLayout(selectionLayout)
-
-        self.name_label = QLabel("Configuration Name: ")
-        self.name_label.setMinimumWidth(100)
-        self.name_label.setMaximumWidth(100)
-        self.name_box = QLineEdit(self.current_config)
-        self.name_box.setMaxLength(50)
-
-        nameLayout = QHBoxLayout()
-        nameLayout.addWidget(self.name_label)
-        nameLayout.addWidget(self.name_box)
-        nameWidget = QWidget()
-        nameWidget.setLayout(nameLayout)
-
-        targetLabel = QLabel("Output target: ")
-        self.target_select = QComboBox()
-        for e in self.targets:
-            self.target_select.addItem(e)
-        self.target_select.setCurrentIndex(self.targets.index(self.configs[self.current_config]["type"]))
-
-        targetLayout = QHBoxLayout()
-        targetLayout.addWidget(targetLabel)
-        targetLayout.addWidget(self.target_select)
-        targetWidget = QWidget()
-        targetWidget.setLayout(targetLayout)
-
-        self.target_options = self.target_widgets[self.targets.index(self.configs[self.current_config]["type"])](
-            self.configs[self.current_config])
-
-        layout = QVBoxLayout()
-        layout.addWidget(selectionWidget)
-        layout.addWidget(nameWidget)
-        layout.addWidget(targetWidget)
-        layout.addWidget(self.target_options)
-        layout.setAlignment(Qt.AlignTop)
-        self.setLayout(layout)
-
     def set_connections(self):
         """
         Sets up all the connections between the components of the DataOutputOptions widget
@@ -370,6 +387,7 @@ class DataOutputOptions(QWidget):
         """
         if i == -1:
             self.current_config = ""
+            self.del_config.setEnabled(False)
             self.name_box.setText("")
             self.name_box.setEnabled(False)
             self.target_select.setEnabled(False)
@@ -381,7 +399,11 @@ class DataOutputOptions(QWidget):
             self.update()
             return
 
+        if self.current_config:
+            self.configs[self.current_config] = self.target_options.get_config()
+
         self.current_config = self.config_select.itemText(i)
+        self.del_config.setEnabled(True)
         self.name_box.setText(self.current_config)
         self.target_select.setCurrentIndex(self.targets.index(self.configs[self.current_config]["type"]))
         self.layout().removeWidget(self.target_options)
@@ -410,10 +432,9 @@ class DataOutputOptions(QWidget):
         """
         Called when a new configuration is to be created by pressing the + button at the top of the widget
         """
-        self.current_config = "configuration-" + str(len(self.configs) + 1)
-        self.configs[self.current_config] = self.target_widgets[0]().get_config()
-        self.name_box.setText(self.current_config)
-        self.config_select.addItem(self.current_config)
+        new_config = "configuration-" + str(len(self.configs) + 1)
+        self.configs[new_config] = self.target_widgets[0]().get_config()
+        self.config_select.addItem(new_config)
         self.config_select.setCurrentIndex(len(self.configs) - 1)
 
     @check_ready
