@@ -19,7 +19,7 @@ from PyQt5.QtCore import Qt
 
 import cv2
 
-from serialization import Serializer
+from Serialization import Serializer
 from OutputWidget import DataOutputOptions
 
 diskDir = ""

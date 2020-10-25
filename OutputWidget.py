@@ -14,6 +14,10 @@ from PyQt5.QtWidgets import QFileDialog
 
 from PyQt5.QtCore import Qt
 
+from Serialization import Serializer
+from Serialization import DiskSerializer
+from Serialization import S3Serializer
+
 documents_dir = os.path.join(os.path.expanduser("~"), "Documents")
 
 
@@ -49,6 +53,12 @@ class TargetOptions(QWidget):
         """
         Serializes the current options selected for the output target
         :return: json representation of the options
+        """
+        raise NotImplementedError()
+
+    def create_serializer(self) -> Serializer:
+        """
+        Creates and returns the appropriate serializer for the target options
         """
         raise NotImplementedError()
 
@@ -219,6 +229,9 @@ class DiskTargetOptions(TargetOptions):
             "lbl_fmt": self.lbl_fmt
         }
 
+    def create_serializer(self) -> Serializer:
+        pass
+
 
 class S3TargetOptions(TargetOptions):
     def __init__(self, data=None):
@@ -242,6 +255,9 @@ class S3TargetOptions(TargetOptions):
             "type": "S3",
             "data": self.textBox.text()
         }
+
+    def create_serializer(self) -> Serializer:
+        pass
 
 
 class DataOutputOptions(QWidget):
@@ -337,6 +353,9 @@ class DataOutputOptions(QWidget):
             self.update()
 
     def shutdown(self):
+        if self.current_config:
+            self.configs[self.current_config] = self.target_options.get_config()
+
         # Deleting old configurations
         for e in os.listdir(os.path.join(self.disk_dir, "DataOutputConfigurations")):
             if e.split(".")[-1] == "json":
@@ -473,3 +492,8 @@ class DataOutputOptions(QWidget):
             self.target_options = self.target_widgets[i]()
             self.layout().addWidget(self.target_options)
             self.configs[self.current_config] = self.target_options.get_config()
+
+    def create_serializer(self) -> Serializer:
+        if not self.current_config:
+            raise ValueError("A configuration is not selected")
+        return self.target_options.create_serializer()
