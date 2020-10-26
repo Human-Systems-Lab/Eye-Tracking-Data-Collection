@@ -1,12 +1,21 @@
 import os
 import platform
+import io
 import json
+import platform
 from datetime import datetime
 from abc import ABC, abstractmethod
 from typing import Tuple
 
 import boto3
 import cv2
+
+plat = platform.system()
+if plat == "Windows":
+    cache_dir = os.path.join(os.getenv("APPDATA"), "HSL")
+else:
+    cache_dir = os.path.join(os.path.expanduser("~"), ".HSL")
+cache_dir = os.path.join(cache_dir, "EyeTracking-DataCollection", "cache")
 
 
 def get_fmt(fmt: str, d: datetime) -> str:
@@ -66,12 +75,6 @@ def mkdir_file(file: str) -> None:
 
 class Serializer(ABC):
     @abstractmethod
-    def close(self) -> None:
-        """
-        Flushes any internal buffers, and closes any connections to servers
-        """
-
-    @abstractmethod
     def handle_data(self, point: Tuple[float, float], frame) -> None:
         """
         Serializes a frame of data to the selected location
@@ -82,14 +85,18 @@ class Serializer(ABC):
 
 
 class DiskSerializer(Serializer):
-    def __init__(self, base_dir: str, img_dir: str, img_fmt: str, lbl_dir: str, lbl_fmt: str):
+    def __init__(
+            self,
+            base_dir: str,
+            img_dir: str,
+            img_fmt: str,
+            lbl_dir: str,
+            lbl_fmt: str
+    ):
         self.img_dir = os.path.join(base_dir, img_dir)
         self.lbl_dir = os.path.join(base_dir, lbl_dir)
-        self.img_fmt = img_fmt
-        self.lbl_fmt = lbl_fmt
-
-    def close(self) -> None:
-        pass
+        self.img_fmt = img_fmt.replace("\\", '/')
+        self.lbl_fmt = lbl_fmt.replace("\\", '/')
 
     def handle_data(self, point: Tuple[float, float], frame) -> None:
         d = datetime.today()
@@ -111,16 +118,45 @@ class DiskSerializer(Serializer):
 
 
 class S3Serializer(Serializer):
-    def __init__(self, bucket, aws_access_key_id=None, aws_secret_access_key=None):
+    def __init__(
+            self,
+            bucket: str,
+            img_dir: str,
+            img_fmt: str,
+            lbl_dir: str,
+            lbl_fmt: str,
+            aws_access_key_id: str = None,
+            aws_secret_access_key: str = None
+    ):
         self.client = boto3.client(
             service_name="s3",
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key
         )
-        self.bucket = bucket
 
-    def close(self) -> None:
-        pass
+        self.bucket = bucket
+        self.img_dir = img_dir.replace("\\", '/')
+        self.img_fmt = img_fmt.replace("\\", '/')
+        self.lbl_dir = lbl_dir.replace("\\", '/')
+        self.lbl_fmt = lbl_fmt.replace("\\", '/')
 
     def handle_data(self, point: Tuple[float, float], frame) -> None:
-        raise NotImplementedError()
+        tmp_filename = os.path.join(cache_dir, "tmp.jpg")
+        cv2.imwrite(tmp_filename, frame)
+
+        d = datetime.today()
+        img_filename = self.img_dir + '/' + get_fmt(self.img_fmt, d) + ".jpg"
+        lbl_filename = self.lbl_dir + '/' + get_fmt(self.lbl_fmt, d) + ".json"
+
+        with open(tmp_filename, "rb") as f:
+            self.client.upload_fileobj(f, self.bucket, img_filename)
+        f = io.StringIO()
+        json.dump(
+            {
+                "x": point[0],
+                "y": point[1]
+
+            },
+            f
+        )
+        self.client.upload_fileobj(f, self.bucket, lbl_filename)

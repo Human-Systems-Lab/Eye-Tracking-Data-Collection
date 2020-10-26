@@ -22,7 +22,7 @@ import cv2
 from Serialization import Serializer
 from OutputWidget import DataOutputOptions
 
-diskDir = ""
+disk_dir = ""
 
 
 class ResourceLock:
@@ -200,7 +200,7 @@ class MainWindow(QMainWindow):
 
         # Building the Data Output widget
         self.data_output = QDockWidget("Data Output", self)
-        self.data_output_options = DataOutputOptions(diskDir)
+        self.data_output_options = DataOutputOptions(disk_dir)
         self.data_output.setWidget(self.data_output_options)
         self.data_output.setFloating(False)
 
@@ -224,22 +224,29 @@ class MainWindow(QMainWindow):
 
 
 def main():
-    global diskDir
+    global disk_dir
     plat = platform.system()
     if plat == "Windows":
-        diskDir = os.path.join(os.getenv("APPDATA"), "HSL")
+        disk_dir = os.path.join(os.getenv("APPDATA"), "HSL")
     elif plat == "Linux":
-        diskDir = os.path.join(os.path.expanduser("~"), ".HSL")
+        disk_dir = os.path.join(os.path.expanduser("~"), ".HSL")
     else:
         print("Unsupported operating system: %s" % plat)
         print("This software only supports Windows and Linux")
         exit(1)
 
-    if not os.path.isdir(diskDir):
-        os.mkdir(diskDir)
-    diskDir = os.path.join(diskDir, "EyeTracking-DataCollection")
-    if not os.path.isdir(diskDir):
-        os.mkdir(diskDir)
+    if not os.path.isdir(disk_dir):
+        os.mkdir(disk_dir)
+    disk_dir = os.path.join(disk_dir, "EyeTracking-DataCollection")
+    if not os.path.isdir(disk_dir):
+        os.mkdir(disk_dir)
+
+    output_configs_path = os.path.join(disk_dir, "DataOutputConfigurations")
+    if not os.path.isdir(output_configs_path):
+        os.mkdir(output_configs_path)
+    cache_path = os.path.join(disk_dir, "cache")
+    if not os.path.isdir(cache_path):
+        os.mkdir(cache_path)
 
     app = QApplication(sys.argv)
     window = MainWindow()
