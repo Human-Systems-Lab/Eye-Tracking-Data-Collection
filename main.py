@@ -188,7 +188,6 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
         self.setCursor(Qt.ArrowCursor)
-        self.eyePrompt = EyePrompt()
 
         self.setWindowIcon(QtGui.QIcon("assets/HSL-logo.png"))
         self.setWindowTitle("HSL | Eye Tracking Data Collection")
@@ -213,11 +212,15 @@ class MainWindow(QMainWindow):
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         k = e.key()
-        if k == Qt.Key_Return:
-            pass
-            # self.eyePrompt.showFullScreen()
-            # self.eyePrompt.cycleLength = 2
-            # self.eyePrompt.startPrompts()
+        if k == Qt.Key_R:
+            try:
+                prompter = EyePrompt()
+                prompter.showFullScreen()
+                prompter.cycleLength = 2
+                prompter.serializer = self.data_output_options.create_serializer()
+                prompter.startPrompts()
+            except ValueError:
+                pass
 
 
 def main():
