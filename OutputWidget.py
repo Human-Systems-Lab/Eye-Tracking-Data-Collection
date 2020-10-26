@@ -14,6 +14,10 @@ from PyQt5.QtWidgets import QFileDialog
 
 from PyQt5.QtCore import Qt
 
+from Serialization import Serializer
+from Serialization import DiskSerializer
+from Serialization import S3Serializer
+
 documents_dir = os.path.join(os.path.expanduser("~"), "Documents")
 
 
@@ -52,6 +56,12 @@ class TargetOptions(QWidget):
         """
         raise NotImplementedError()
 
+    def create_serializer(self) -> Serializer:
+        """
+        Creates and returns the appropriate serializer for the target options
+        """
+        raise NotImplementedError()
+
 
 class DiskTargetOptions(TargetOptions):
     """
@@ -76,35 +86,6 @@ class DiskTargetOptions(TargetOptions):
             self.lbl_dir = data["lbl_dir"]
             self.lbl_fmt = data["lbl_fmt"]
 
-        self.base_dir_box = None
-        self.base_dir_browse = None
-
-        self.img_dir_box = None
-        self.img_fmt_box = None
-
-        self.lbl_dir_box = None
-        self.lbl_fmt_box = None
-
-        self.build_layout()
-        self.set_connections()
-
-    def check_ready(f):
-        @wraps(f)
-        def func(this, *args, **kwargs):
-            if (
-                    this.base_dir_box is None or
-                    this.base_dir_browse is None or
-                    this.img_dir_box is None or
-                    this.img_fmt_box is None or
-                    this.lbl_dir_box is None or
-                    this.lbl_fmt_box is None
-            ):
-                return
-
-            return f(this, *args, **kwargs)
-        return func
-
-    def build_layout(self):
         self.base_dir_box = QLineEdit(self.base_dir)
         self.base_dir_browse = QPushButton("...")
         self.base_dir_browse.setMaximumWidth(30)
@@ -160,6 +141,25 @@ class DiskTargetOptions(TargetOptions):
         layout.addWidget(lbl_fmt_widget)
         self.setLayout(layout)
 
+        self.set_connections()
+
+    def check_ready(f):
+        @wraps(f)
+        def func(this, *args, **kwargs):
+            if (
+                    this.base_dir_box is None or
+                    this.base_dir_browse is None or
+                    this.img_dir_box is None or
+                    this.img_fmt_box is None or
+                    this.lbl_dir_box is None or
+                    this.lbl_fmt_box is None
+            ):
+                return
+
+            return f(this, *args, **kwargs)
+        return func
+
+    # noinspection PyUnresolvedReferences
     def set_connections(self):
         self.base_dir_box.returnPressed.connect(self.on_base_dir_box)
         self.base_dir_browse.pressed.connect(self.on_base_dir_browse)
@@ -219,6 +219,15 @@ class DiskTargetOptions(TargetOptions):
             "lbl_fmt": self.lbl_fmt
         }
 
+    def create_serializer(self) -> Serializer:
+        return DiskSerializer(
+            self.base_dir,
+            self.img_dir,
+            self.img_fmt,
+            self.lbl_dir,
+            self.lbl_fmt
+        )
+
 
 class S3TargetOptions(TargetOptions):
     def __init__(self, data=None):
@@ -242,6 +251,9 @@ class S3TargetOptions(TargetOptions):
             "type": "S3",
             "data": self.textBox.text()
         }
+
+    def create_serializer(self) -> Serializer:
+        pass
 
 
 class DataOutputOptions(QWidget):
@@ -337,6 +349,9 @@ class DataOutputOptions(QWidget):
             self.update()
 
     def shutdown(self):
+        if self.current_config:
+            self.configs[self.current_config] = self.target_options.get_config()
+
         # Deleting old configurations
         for e in os.listdir(os.path.join(self.disk_dir, "DataOutputConfigurations")):
             if e.split(".")[-1] == "json":
@@ -369,6 +384,7 @@ class DataOutputOptions(QWidget):
 
         return func
 
+    # noinspection PyUnresolvedReferences
     def set_connections(self):
         """
         Sets up all the connections between the components of the DataOutputOptions widget
@@ -473,3 +489,8 @@ class DataOutputOptions(QWidget):
             self.target_options = self.target_widgets[i]()
             self.layout().addWidget(self.target_options)
             self.configs[self.current_config] = self.target_options.get_config()
+
+    def create_serializer(self) -> Serializer:
+        if not self.current_config:
+            raise ValueError("A configuration is not selected")
+        return self.target_options.create_serializer()
