@@ -1,4 +1,5 @@
 import os
+import platform
 import json
 from datetime import datetime
 from abc import ABC, abstractmethod
@@ -23,6 +24,7 @@ def get_fmt(fmt: str, d: datetime) -> str:
     m = str(d.minute)
     s = str(d.second) + str(d.microsecond)[:3]
     fmt = bytearray(fmt, "utf-8")
+    print(fmt, Y, M, D, h, m, s)
     for i in range(len(fmt)):
         if fmt[i] == ord('Y'):
             fmt[i] = ord(Y[0])
@@ -52,6 +54,9 @@ def mkdir_file(file: str) -> None:
     :param file: The file for which a path must exist
     """
     dir_tree = file.replace('\\', '/').split('/')[:-1]
+    if platform.system() == "Linux":
+        dir_tree = dir_tree[1:]
+        dir_tree[0] = '/' + dir_tree[0]
     base = ""
     for e in dir_tree:
         base = os.path.join(base, e)
