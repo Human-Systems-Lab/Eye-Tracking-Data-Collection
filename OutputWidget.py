@@ -143,22 +143,6 @@ class DiskTargetOptions(TargetOptions):
 
         self.set_connections()
 
-    def check_ready(f):
-        @wraps(f)
-        def func(this, *args, **kwargs):
-            if (
-                    this.base_dir_box is None or
-                    this.base_dir_browse is None or
-                    this.img_dir_box is None or
-                    this.img_fmt_box is None or
-                    this.lbl_dir_box is None or
-                    this.lbl_fmt_box is None
-            ):
-                return
-
-            return f(this, *args, **kwargs)
-        return func
-
     # noinspection PyUnresolvedReferences
     def set_connections(self):
         self.base_dir_box.returnPressed.connect(self.on_base_dir_box)
@@ -167,47 +151,6 @@ class DiskTargetOptions(TargetOptions):
         self.img_fmt_box.returnPressed.connect(self.on_img_fmt_box)
         self.lbl_dir_box.returnPressed.connect(self.on_lbl_dir_box)
         self.lbl_fmt_box.returnPressed.connect(self.on_lbl_fmt_box)
-
-    @check_ready
-    def on_base_dir_box(self):
-        new_base_dir = self.base_dir_box.text()
-        if os.path.isdir(new_base_dir):
-            self.base_dir = new_base_dir
-        else:
-            self.base_dir_box.setText(self.base_dir)
-
-    @check_ready
-    def on_base_dir_browse(self):
-        dialog = QFileDialog(self, "Base Output Directory", self.base_dir)
-        dialog.setViewMode(QFileDialog.Detail)
-        dialog.setFileMode(QFileDialog.DirectoryOnly)
-        if dialog.exec_() == QFileDialog.Accepted:
-            self.base_dir = dialog.selectedFiles()[0]
-            self.base_dir_box.setText(self.base_dir)
-
-    @check_ready
-    def on_img_dir_box(self):
-        self.img_dir = self.img_dir_box.text()
-
-    @check_ready
-    def on_img_fmt_box(self):
-        new_img_fmt = self.img_fmt_box.text()
-        if valid_fmt(new_img_fmt):
-            self.img_fmt = new_img_fmt
-        else:
-            self.img_fmt_box.setText(self.img_fmt)
-
-    @check_ready
-    def on_lbl_dir_box(self):
-        self.lbl_dir = self.lbl_dir_box.text()
-
-    @check_ready
-    def on_lbl_fmt_box(self):
-        new_lbl_fmt = self.lbl_fmt_box.text()
-        if valid_fmt(new_lbl_fmt):
-            self.lbl_fmt = new_lbl_fmt
-        else:
-            self.lbl_fmt_box.setText(self.lbl_fmt)
 
     def get_config(self):
         return {
@@ -228,6 +171,41 @@ class DiskTargetOptions(TargetOptions):
             self.lbl_fmt
         )
 
+    def on_base_dir_box(self):
+        new_base_dir = self.base_dir_box.text()
+        if os.path.isdir(new_base_dir):
+            self.base_dir = new_base_dir
+        else:
+            self.base_dir_box.setText(self.base_dir)
+
+    def on_base_dir_browse(self):
+        dialog = QFileDialog(self, "Base Output Directory", self.base_dir)
+        dialog.setViewMode(QFileDialog.Detail)
+        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        if dialog.exec_() == QFileDialog.Accepted:
+            self.base_dir = dialog.selectedFiles()[0]
+            self.base_dir_box.setText(self.base_dir)
+
+    def on_img_dir_box(self):
+        self.img_dir = self.img_dir_box.text()
+
+    def on_img_fmt_box(self):
+        new_img_fmt = self.img_fmt_box.text()
+        if valid_fmt(new_img_fmt):
+            self.img_fmt = new_img_fmt
+        else:
+            self.img_fmt_box.setText(self.img_fmt)
+
+    def on_lbl_dir_box(self):
+        self.lbl_dir = self.lbl_dir_box.text()
+
+    def on_lbl_fmt_box(self):
+        new_lbl_fmt = self.lbl_fmt_box.text()
+        if valid_fmt(new_lbl_fmt):
+            self.lbl_fmt = new_lbl_fmt
+        else:
+            self.lbl_fmt_box.setText(self.lbl_fmt)
+
 
 class S3TargetOptions(TargetOptions):
     def __init__(self, data=None):
@@ -237,23 +215,165 @@ class S3TargetOptions(TargetOptions):
         super(S3TargetOptions, self).__init__()
 
         if data is None:
-            self.textBox = QLineEdit("init")
+            self.access_key_id = "default"
+            self.secret_access_key = "default"
+            self.bucket_name = ""
+            self.img_dir = ""
+            self.img_fmt = ""
+            self.lbl_dir = ""
+            self.lbl_fmt = ""
         else:
-            self.textBox = QLineEdit(data["data"])
+            self.access_key_id = data["access_key"]
+            self.secret_access_key = data["secret_key"]
+            self.bucket_name = data["bucket"]
+            self.img_dir = data["img_dir"]
+            self.img_fmt = data["img_fmt"]
+            self.lbl_dir = data["lbl_dir"]
+            self.lbl_fmt = data["lbl_fmt"]
+
+        access_key_label = QLabel("Access Key ID:")
+        self.access_key_box = QLineEdit(self.access_key_id)
+
+        access_key_layout = QHBoxLayout()
+        access_key_layout.addWidget(access_key_label)
+        access_key_layout.addWidget(self.access_key_box)
+        access_key_widget = QWidget()
+        access_key_widget.setLayout(access_key_layout)
+
+        secret_key_label = QLabel("Secret Access Key ID:")
+        self.secret_key_box = QLineEdit(self.secret_access_key)
+
+        secret_key_layout = QHBoxLayout()
+        secret_key_layout.addWidget(secret_key_label)
+        secret_key_layout.addWidget(self.secret_key_box)
+        secret_key_widget = QWidget()
+        secret_key_widget.setLayout(secret_key_layout)
+
+        bucket_name_label = QLabel("Bucket Name:")
+        self.bucket_name_box = QLineEdit(self.bucket_name)
+
+        bucket_name_layout = QHBoxLayout()
+        bucket_name_layout.addWidget(bucket_name_label)
+        bucket_name_layout.addWidget(self.bucket_name_box)
+        bucket_name_widget = QWidget()
+        bucket_name_widget.setLayout(bucket_name_layout)
+
+        img_dir_lbl = QLabel("Image path: ")
+        self.img_dir_box = QLineEdit(self.img_dir)
+
+        img_dir_layout = QHBoxLayout()
+        img_dir_layout.addWidget(img_dir_lbl)
+        img_dir_layout.addWidget(self.img_dir_box)
+        img_dir_widget = QWidget()
+        img_dir_widget.setLayout(img_dir_layout)
+
+        img_fmt_lbl = QLabel("Image data format: ")
+        self.img_fmt_box = QLineEdit(self.img_fmt)
+
+        img_fmt_layout = QHBoxLayout()
+        img_fmt_layout.addWidget(img_fmt_lbl)
+        img_fmt_layout.addWidget(self.img_fmt_box)
+        img_fmt_widget = QWidget()
+        img_fmt_widget.setLayout(img_fmt_layout)
+
+        lbl_dir_lbl = QLabel("Label path: ")
+        self.lbl_dir_box = QLineEdit(self.lbl_dir)
+
+        lbl_dir_layout = QHBoxLayout()
+        lbl_dir_layout.addWidget(lbl_dir_lbl)
+        lbl_dir_layout.addWidget(self.lbl_dir_box)
+        lbl_dir_widget = QWidget()
+        lbl_dir_widget.setLayout(lbl_dir_layout)
+
+        lbl_fmt_lbl = QLabel("Label data format: ")
+        self.lbl_fmt_box = QLineEdit(self.lbl_fmt)
+
+        lbl_fmt_layout = QHBoxLayout()
+        lbl_fmt_layout.addWidget(lbl_fmt_lbl)
+        lbl_fmt_layout.addWidget(self.lbl_fmt_box)
+        lbl_fmt_widget = QWidget()
+        lbl_fmt_widget.setLayout(lbl_fmt_layout)
 
         layout = QVBoxLayout()
         layout.addWidget(QLabel("S3"))
-        layout.addWidget(self.textBox)
+        layout.addWidget(access_key_widget)
+        layout.addWidget(secret_key_widget)
+        layout.addWidget(bucket_name_widget)
+        layout.addWidget(img_dir_widget)
+        layout.addWidget(img_fmt_widget)
+        layout.addWidget(lbl_dir_widget)
+        layout.addWidget(lbl_fmt_widget)
         self.setLayout(layout)
+
+        self.set_connections()
+
+    # noinspection PyUnresolvedReferences
+    def set_connections(self):
+        self.access_key_box.returnPressed.connect(self.on_access_key_box)
+        self.secret_key_box.returnPressed.connect(self.on_secret_key_box)
+        self.bucket_name_box.returnPressed.connect(self.on_bucket_name_box)
+        self.img_dir_box.returnPressed.connect(self.on_img_dir_box)
+        self.img_fmt_box.returnPressed.connect(self.on_img_fmt_box)
+        self.lbl_dir_box.returnPressed.connect(self.on_lbl_dir_box)
+        self.lbl_fmt_box.returnPressed.connect(self.on_lbl_fmt_box)
 
     def get_config(self):
         return {
             "type": "S3",
-            "data": self.textBox.text()
+            "access_key": self.access_key_id,
+            "secret_key": self.secret_access_key,
+            "bucket": self.bucket_name,
+            "img_dir": self.img_dir,
+            "img_fmt": self.img_fmt,
+            "lbl_dir": self.lbl_dir,
+            "lbl_fmt": self.lbl_fmt
         }
 
     def create_serializer(self) -> Serializer:
-        pass
+        access_key = None
+        secret_key = None
+        if self.access_key_id != "default":
+            access_key = self.access_key_id
+        if self.secret_access_key != "default":
+            secret_key = self.secret_access_key
+        return S3Serializer(
+            self.bucket_name,
+            self.img_dir,
+            self.img_fmt,
+            self.lbl_dir,
+            self.lbl_fmt,
+            access_key,
+            secret_key
+        )
+
+    def on_access_key_box(self):
+        self.access_key_id = self.access_key_box.text()
+
+    def on_secret_key_box(self):
+        self.secret_access_key = self.secret_key_box.text()
+
+    def on_bucket_name_box(self):
+        self.bucket_name = self.bucket_name_box.text()
+
+    def on_img_dir_box(self):
+        self.img_dir = self.img_dir_box.text()
+
+    def on_img_fmt_box(self):
+        new_img_fmt = self.img_fmt_box.text()
+        if valid_fmt(new_img_fmt):
+            self.img_fmt = new_img_fmt
+        else:
+            self.img_fmt_box.setText(self.img_fmt)
+
+    def on_lbl_dir_box(self):
+        self.lbl_dir = self.lbl_dir_box.text()
+
+    def on_lbl_fmt_box(self):
+        new_lbl_fmt = self.lbl_fmt_box.text()
+        if valid_fmt(new_lbl_fmt):
+            self.lbl_fmt = new_lbl_fmt
+        else:
+            self.lbl_fmt_box.setText(self.lbl_fmt)
 
 
 class DataOutputOptions(QWidget):
@@ -362,28 +482,6 @@ class DataOutputOptions(QWidget):
             with open(os.path.join(self.disk_dir, "DataOutputConfigurations", k + ".json"), "w") as f:
                 json.dump(self.configs[k], f, indent=4)
 
-    def check_ready(f):
-        """
-        Only to be used in the DataOutputOptions class for slot functions
-        Ensures components of the widget are initialized
-        """
-        @wraps(f)
-        def func(self, *args, **kwargs):
-            if (
-                    self.config_select is None or
-                    self.new_config is None or
-                    self.del_config is None or
-                    self.name_label is None or
-                    self.name_box is None or
-                    self.target_select is None or
-                    self.target_options is None
-            ):
-                return
-
-            return f(self, *args, **kwargs)
-
-        return func
-
     # noinspection PyUnresolvedReferences
     def set_connections(self):
         """
@@ -395,7 +493,6 @@ class DataOutputOptions(QWidget):
         self.name_box.returnPressed.connect(self.on_name_box)
         self.target_select.currentIndexChanged.connect(self.on_target_select)
 
-    @check_ready
     def on_config_select(self, i: int) -> None:
         """
         Called when a new configuration is selected from the drop down at the top of the widget
@@ -432,7 +529,6 @@ class DataOutputOptions(QWidget):
         self.name_box.setEnabled(True)
         self.target_select.setEnabled(True)
 
-    @check_ready
     def on_name_box(self) -> None:
         """
         Called when a new name is set for the current configuration
@@ -443,7 +539,6 @@ class DataOutputOptions(QWidget):
         self.current_config = nName
         self.config_select.setItemText(self.config_select.currentIndex(), nName)
 
-    @check_ready
     def on_new_config(self) -> None:
         """
         Called when a new configuration is to be created by pressing the + button at the top of the widget
@@ -453,7 +548,6 @@ class DataOutputOptions(QWidget):
         self.config_select.addItem(new_config)
         self.config_select.setCurrentIndex(len(self.configs) - 1)
 
-    @check_ready
     def on_del_config(self) -> None:
         """
         Called when the current configuration is to be deleted by pressing the - button at the top of the widget
@@ -476,7 +570,6 @@ class DataOutputOptions(QWidget):
 
         self.current_config = list(self.configs)[i]
 
-    @check_ready
     def on_target_select(self, i: int) -> None:
         """
         Called when the output target type is changed, ex. Disk to S3
