@@ -1,15 +1,13 @@
 import os
 import json
-from typing import Optional
-from functools import wraps
 
+from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QLabel
+from PyQt5.QtWidgets import QPushButton
+from PyQt5.QtWidgets import QLineEdit
+from PyQt5.QtWidgets import QComboBox
 from PyQt5.QtWidgets import QVBoxLayout
 from PyQt5.QtWidgets import QHBoxLayout
-from PyQt5.QtWidgets import QPushButton
-from PyQt5.QtWidgets import QComboBox
-from PyQt5.QtWidgets import QLineEdit
-from PyQt5.QtWidgets import QLabel
-from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QFileDialog
 
 from PyQt5.QtCore import Qt
@@ -376,13 +374,13 @@ class S3TargetOptions(TargetOptions):
             self.lbl_fmt_box.setText(self.lbl_fmt)
 
 
-class DataOutputOptions(QWidget):
+class OutputConfigWidget(QWidget):
     """
     Widget for setting up the data serialization for the application
     """
 
     def __init__(self, disk_dir: str):
-        super(DataOutputOptions, self).__init__()
+        super(OutputConfigWidget, self).__init__()
 
         self.disk_dir = disk_dir
         self.targets = ["Disk", "S3"]
@@ -400,7 +398,6 @@ class DataOutputOptions(QWidget):
 
         self.config_select = QComboBox()
         self.config_select.setMinimumWidth(100)
-        # self.configCombos.removeItem()
         for k in self.configs.keys():
             self.config_select.addItem(k)
         self.new_config = QPushButton("+")

@@ -1,5 +1,4 @@
 import os
-import platform
 import io
 import json
 import platform
@@ -150,13 +149,12 @@ class S3Serializer(Serializer):
 
         with open(tmp_filename, "rb") as f:
             self.client.upload_fileobj(f, self.bucket, img_filename)
-        f = io.StringIO()
-        json.dump(
-            {
-                "x": point[0],
-                "y": point[1]
-
-            },
-            f
-        )
-        self.client.upload_fileobj(f, self.bucket, lbl_filename)
+        with io.StringIO() as f:
+            json.dump(
+                {
+                    "x": point[0],
+                    "y": point[1]
+                },
+                f
+            )
+            self.client.upload_fileobj(f, self.bucket, lbl_filename)
