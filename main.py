@@ -7,13 +7,13 @@ from PyQt5 import QtGui
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtWidgets import QDockWidget
-from PyQt5.QtWidgets import QTextEdit
 
 from PyQt5.QtGui import QKeyEvent
 from PyQt5.QtCore import Qt
 
 
 from OutputConfigWidget import OutputConfigWidget
+from PromptConfigWidget import PromptConfigWidget
 from Prompter import EyePrompt
 
 disk_dir = ""
@@ -28,31 +28,33 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("HSL | Eye Tracking Data Collection")
         self.setGeometry(100, 100, 900, 900)
 
-        bar = self.menuBar()
-        file = bar.addMenu("File")
-        file.addAction("New")
-        file.addAction("Save")
+        # output configurations widget
+        self.output_config_widget = OutputConfigWidget(disk_dir)
+        output_config = QDockWidget("Data Output", self)
+        output_config.setWidget(self.output_config_widget)
+        output_config.setFloating(False)
+        self.addDockWidget(Qt.RightDockWidgetArea, output_config)
 
-        # Building the Data Output widget
-        self.data_output = QDockWidget("Data Output", self)
-        self.data_output_options = OutputConfigWidget(disk_dir)
-        self.data_output.setWidget(self.data_output_options)
-        self.data_output.setFloating(False)
-
-        self.setCentralWidget(QTextEdit())
-        self.addDockWidget(Qt.RightDockWidgetArea, self.data_output)
+        # prompter configurations widget
+        self.prompt_config_widget = PromptConfigWidget(disk_dir)
+        prompt_config = QDockWidget("Prompter Configuration", self)
+        prompt_config.setWidget(self.prompt_config_widget)
+        prompt_config.setFloating(False)
+        self.setCentralWidget(prompt_config)
 
     def shutdown(self):
-        self.data_output_options.shutdown()
+        self.output_config_widget.shutdown()
+        self.prompt_config_widget.shutdown()
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         k = e.key()
-        if k == Qt.Key_R:
+        modifiers = QApplication.keyboardModifiers()
+        if k == Qt.Key_R and modifiers == Qt.ControlModifier:
             try:
                 prompter = EyePrompt()
                 prompter.showFullScreen()
                 prompter.cycleLength = 2
-                prompter.serializer = self.data_output_options.create_serializer()
+                prompter.serializer = self.output_config_widget.create_serializer()
                 prompter.startPrompts()
             except ValueError:
                 pass

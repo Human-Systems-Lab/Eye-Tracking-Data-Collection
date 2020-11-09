@@ -457,12 +457,6 @@ class OutputConfigWidget(QWidget):
             self.del_config.setEnabled(False)
             self.name_box.setEnabled(False)
             self.target_select.setEnabled(False)
-
-            self.layout().removeWidget(self.target_options)
-            self.target_options.setHidden(True)
-            self.target_options.destroy()
-            self.target_options = QWidget()
-            self.layout().addWidget(self.target_options)
             self.update()
 
     def shutdown(self):
@@ -549,12 +543,12 @@ class OutputConfigWidget(QWidget):
         """
         Called when the current configuration is to be deleted by pressing the - button at the top of the widget
         """
-        i = list(self.configs).index(self.current_config)
-        del self.configs[self.current_config]
-        self.config_select.removeItem(i)
-        if i != 0:
-            i -= 1
-        elif len(self.config_select) == 0:
+        current_config = self.current_config
+        combo_idx = self.config_select.currentIndex()
+        self.config_select.removeItem(combo_idx)
+        self.configs.pop(current_config, None)
+
+        if len(self.config_select) == 0:
             self.current_config = ""
             self.name_box.setText("")
             self.target_select.setEnabled(False)
@@ -565,7 +559,10 @@ class OutputConfigWidget(QWidget):
             self.layout().addWidget(self.target_options)
             return
 
-        self.current_config = list(self.configs)[i]
+        if combo_idx != 0:
+            combo_idx -= 1
+        self.current_config = self.config_select.itemText(combo_idx)
+        self.config_select.setCurrentIndex(combo_idx)
 
     def on_target_select(self, i: int) -> None:
         """

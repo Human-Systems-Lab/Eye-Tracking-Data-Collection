@@ -9,6 +9,17 @@ from PyQt5.QtWidgets import QComboBox
 from PyQt5.QtWidgets import QVBoxLayout
 from PyQt5.QtWidgets import QHBoxLayout
 
+from PyQt5.QtCore import Qt
+
+
+class ConfigOptions(QWidget):
+    def __init__(self, data=None):
+        super(ConfigOptions, self).__init__()
+        pass
+
+    def get_config(self):
+        return {}
+
 
 class PromptConfigWidget(QWidget):
     """
@@ -57,26 +68,19 @@ class PromptConfigWidget(QWidget):
         name_widget = QWidget()
         name_widget.setLayout(name_layout)
 
-        target_label = QLabel("Output target: ")
-        self.target_select = QComboBox()
-        for e in self.targets:
-            self.target_select.addItem(e)
-        if self.current_config:
-            self.target_select.setCurrentIndex(self.targets.index(self.configs[self.current_config]["type"]))
-
-        target_layout = QHBoxLayout()
-        target_layout.addWidget(target_label)
-        target_layout.addWidget(self.target_select)
-        target_widget = QWidget()
-        target_widget.setLayout(target_layout)
+        configs_widget = QLabel("Configurations: ")
 
         if self.current_config:
-            self.target_options = self.target_widgets[self.targets.index(self.configs[self.current_config]["type"])](
-                self.configs[self.current_config])
+            self.config_options = ConfigOptions()
         else:
-            self.target_options = QWidget()
+            self.config_options = QWidget()
 
         layout = QVBoxLayout()
+        layout.addWidget(selection_widget)
+        layout.addWidget(name_widget)
+        layout.addWidget(configs_widget)
+        layout.addWidget(self.config_options)
+        layout.setAlignment(Qt.AlignTop)
         self.setLayout(layout)
 
         self.set_connections()
@@ -84,18 +88,103 @@ class PromptConfigWidget(QWidget):
         if not self.current_config:
             self.del_config.setEnabled(False)
             self.name_box.setEnabled(False)
-            self.target_select.setEnabled(False)
-
-            self.layout().removeWidget(self.target_options)
-            self.target_options.setHidden(True)
-            self.target_options.destroy()
-            self.target_options = QWidget()
-            self.layout().addWidget(self.target_options)
             self.update()
 
     def shutdown(self):
-        pass
+        if self.current_config:
+            self.configs[self.current_config] = self.config_options.get_config()
+
+        # Deleting old configurations
+        for e in os.listdir(os.path.join(self.disk_dir, "PromptConfigurations")):
+            if e.split(".")[-1] == "json":
+                os.remove(os.path.join(self.disk_dir, "PromptConfigurations", e))
+
+        # Serializing the new configurations
+        for k in self.configs:
+            with open(os.path.join(self.disk_dir, "PromptConfigurations", k + ".json"), "w") as f:
+                json.dump(self.configs[k], f, indent=4)
 
     # noinspection PyUnresolvedReferences
     def set_connections(self):
-        pass
+        self.config_select.currentIndexChanged.connect(self.on_config_select)
+        self.new_config.pressed.connect(self.on_new_config)
+        self.del_config.pressed.connect(self.on_del_config)
+        self.name_box.returnPressed.connect(self.on_name_box)
+
+    def on_config_select(self, i: int) -> None:
+        """
+        Called when a new configuration is selected from the drop down at the top of the widget
+        :param i: The new index of the configuration selected
+        """
+        if i == -1:
+            self.current_config = ""
+            self.del_config.setEnabled(False)
+            self.name_box.setText("")
+            self.name_box.setEnabled(False)
+
+            self.layout().removeWidget(self.config_options)
+            self.config_options.setHidden(True)
+            self.config_options.destroy()
+            self.config_options = QWidget()
+            self.layout().addWidget(self.config_options)
+            self.update()
+            return
+
+        if self.current_config:
+            self.configs[self.current_config] = self.config_options.get_config()
+
+        self.current_config = self.config_select.itemText(i)
+        self.del_config.setEnabled(True)
+        self.name_box.setText(self.current_config)
+
+        self.layout().removeWidget(self.config_options)
+        self.config_options.setHidden(True)
+        self.config_options.destroy()
+        self.config_options = ConfigOptions(self.configs[self.current_config])
+        self.layout().addWidget(self.config_options)
+
+        self.name_box.setEnabled(True)
+
+    def on_name_box(self) -> None:
+        """
+        Called when a new name is set for the current configuration
+        """
+        nName = self.name_box.text()
+        self.configs[nName] = self.configs[self.current_config]
+        del self.configs[self.current_config]
+        self.current_config = nName
+        self.config_select.setItemText(self.config_select.currentIndex(), nName)
+
+    def on_new_config(self) -> None:
+        """
+        Called when a new configuration is to be created by pressing the + button at the top of the widget
+        """
+        new_config = "configuration-" + str(len(self.configs) + 1)
+        self.configs[new_config] = ConfigOptions().get_config()
+        self.config_select.addItem(new_config)
+        self.config_select.setCurrentIndex(len(self.configs) - 1)
+
+    def on_del_config(self) -> None:
+        """
+        Called when the current configuration is to be deleted by pressing the - button at the top of the widget
+        """
+        current_config = self.current_config
+        combo_idx = self.config_select.currentIndex()
+        self.config_select.removeItem(combo_idx)
+        self.configs.pop(current_config, None)
+
+        if len(self.config_select) == 0:
+            self.current_config = ""
+            self.name_box.setText("")
+
+            self.layout().removeWidget(self.config_options)
+            self.config_options.setHidden(True)
+            self.config_options.destroy()
+            self.config_options = QWidget()
+            self.layout().addWidget(self.config_options)
+            return
+
+        if combo_idx != 0:
+            combo_idx -= 1
+        self.current_config = self.config_select.itemText(combo_idx)
+        self.config_select.setCurrentIndex(combo_idx)
