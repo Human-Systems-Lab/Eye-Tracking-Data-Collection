@@ -28,6 +28,20 @@ pip install -r requirements.txt
 python main.py
 ```
 
+To build the enitre program (including all dependancies) into a single execuable file, run the following command in the Python terminal.
+
+```
+pyinstaller main.py --name="Eye Tracking Data Collector" --icon=hslab_logo.ico --noconsole --onefile
+```
+
+This command requires the pyinstaller module, which can be installed using:
+
+```
+pip install pyinstaller
+```
+
+Runnning pyinstaller with these parameters will output a single exe file to the /dist folder within the project directory.
+
 ##### Ubuntu
 
 ##### Mac
