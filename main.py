@@ -1,6 +1,7 @@
 import os
 import sys
 import platform
+import ctypes
 
 from PyQt5 import QtGui
 
@@ -24,7 +25,7 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__(parent)
         self.setCursor(Qt.ArrowCursor)
 
-        self.setWindowIcon(QtGui.QIcon("assets/HSL-logo.png"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("assets/HSL-logo.png")))
         self.setWindowTitle("HSL | Eye Tracking Data Collection")
         self.setGeometry(100, 100, 900, 900)
 
@@ -60,11 +61,22 @@ class MainWindow(QMainWindow):
                 pass
 
 
+# used to include the icon in the pyinstall build
+def resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath('.'), relative_path)
+
+
 def main():
     global disk_dir
     plat = platform.system()
     if plat == "Windows":
         disk_dir = os.path.join(os.getenv("APPDATA"), "HSL")
+        my_app_id = u'HSL.EyeTracking.DataCollector'  # arbitrary string
+        # set taskbar icon to same as the window app icon
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(my_app_id)
+
     elif plat == "Linux":
         disk_dir = os.path.join(os.path.expanduser("~"), ".HSL")
     else:
