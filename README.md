@@ -31,7 +31,7 @@ python main.py
 To build the enitre program (including all dependancies) into a single execuable file, run the following command in the Python terminal.
 
 ```
-pyinstaller main.py --name="Eye Tracking Data Collector" --icon=hslab_logo.ico --noconsole --onefile
+pyinstaller main.py --name="Eye Tracking Data Collector" --icon="assets/hslab_logo.ico" --noconsole --onefile
 ```
 
 This command requires the pyinstaller module, which can be installed using:
