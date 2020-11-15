@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(prompt_config)
 
         # admin tools widget
-        self.admin_tools_widget = AdminWidget()
+        self.admin_tools_widget = AdminWidget(disk_dir)
         admin_widget = QDockWidget("Admin Tools", self)
         admin_widget.setWidget(self.admin_tools_widget)
         admin_widget.setFloating(False)
@@ -108,6 +108,9 @@ def main():
     cache_path = os.path.join(disk_dir, "cache")
     if not os.path.isdir(cache_path):
         os.mkdir(cache_path)
+    IAM_path = os.path.join(disk_dir, "IAM-accounts")
+    if not os.path.isdir(IAM_path):
+        os.mkdir(IAM_path)
 
     app = QApplication(sys.argv)
     window = MainWindow()
