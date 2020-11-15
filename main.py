@@ -15,6 +15,7 @@ from PyQt5.QtCore import Qt
 
 from OutputConfigWidget import OutputConfigWidget
 from PromptConfigWidget import PromptConfigWidget
+from AdminWidget import AdminWidget
 from Prompter import EyePrompt
 
 disk_dir = ""
@@ -43,9 +44,17 @@ class MainWindow(QMainWindow):
         prompt_config.setFloating(False)
         self.setCentralWidget(prompt_config)
 
+        # admin tools widget
+        self.admin_tools_widget = AdminWidget()
+        admin_widget = QDockWidget("Admin Tools", self)
+        admin_widget.setWidget(self.admin_tools_widget)
+        admin_widget.setFloating(False)
+        self.addDockWidget(Qt.LeftDockWidgetArea, admin_widget)
+
     def shutdown(self):
         self.output_config_widget.shutdown()
         self.prompt_config_widget.shutdown()
+        self.admin_tools_widget.shutdown()
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         k = e.key()
