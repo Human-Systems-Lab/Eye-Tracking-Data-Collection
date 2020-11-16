@@ -127,12 +127,41 @@ class AdminWidget(QWidget):
         self.generated_IAM_users.addItem(new_credentials)
         self.generated_IAM_users.setCurrentIndex(len(self.credentials) - 1)
 
-    def on_delete_IAM(self):
-        raise NotImplemented()
+    def on_delete_IAM(self) -> None:
+        current_credentials = self.current_credentials
+        current_index = self.generated_IAM_users.currentIndex()
+        self.generated_IAM_users.removeItem(current_index)
+        self.credentials.pop(current_credentials, None)
 
-    def on_account_select(self):
-        self.current_IAM_account_access_key.setText(self.credentials["account-"+str(self.generated_IAM_users.currentIndex() + 1)]["access_id"])
-        self.current_IAM_account_secret_key.setText(self.credentials["account-" + str(self.generated_IAM_users.currentIndex() + 1)]["secret_id"])
+        if len(self.generated_IAM_users) == 0:
+            self.current_credentials = ""
+            self.current_IAM_account_access_key.setText("")
+            self.current_IAM_account_secret_key.setText("")
+            return
+
+        if current_index != 0:
+            current_index -= 1
+
+        self.current_credentials = self.generated_IAM_users.itemText(current_index)
+        self.generated_IAM_users.setCurrentIndex(current_index)
+
+    def on_account_select(self, i: int) -> None:
+        if i == -1:
+            self.current_credentials = ""
+            self.delete_button.setEnabled(False)
+            self.current_IAM_account_access_key.setText("")
+            self.current_IAM_account_secret_key.setText("")
+            self.current_IAM_account_access_key.setEnabled(False)
+            self.current_IAM_account_secret_key.setEnabled(False)
+            self.update()
+            return
+
+        self.current_credentials = self.generated_IAM_users.itemText(i)
+        self.delete_button.setEnabled(True)
+        self.current_IAM_account_access_key.setText(self.credentials[self.current_credentials]["access_id"])
+        self.current_IAM_account_secret_key.setText(self.credentials[self.current_credentials]["secret_id"])
+        self.current_IAM_account_access_key.setEnabled(True)
+        self.current_IAM_account_secret_key.setEnabled(True)
 
 
 
