@@ -108,7 +108,7 @@ def main():
     cache_path = os.path.join(disk_dir, "cache")
     if not os.path.isdir(cache_path):
         os.mkdir(cache_path)
-    IAM_path = os.path.join(disk_dir, "IAM-accounts")
+    IAM_path = os.path.join(disk_dir, "IAM-Accounts")
     if not os.path.isdir(IAM_path):
         os.mkdir(IAM_path)
 
