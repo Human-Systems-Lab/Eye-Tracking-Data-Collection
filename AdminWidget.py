@@ -113,26 +113,26 @@ class AdminWidget(QWidget):
         # add it to the list of active accounts
         # fill it into the generated text fields
         new_IAM = {
-            'access_id': 'NewlyGeneratedAccessID',
-            'secret_id': 'NewlyGeneratedSecretID'
+            'access_id': 'test 1',
+            'secret_id': 'test 2'
         }
 
         self.generate_IAM_access_key.setText("testkey1")
         self.generate_IAM_secret_access_key.setText("testkey2")
 
         new_credentials = "account-" + str(len(self.credentials) + 1)
+
+        self.credentials[new_credentials] = new_IAM
+
         self.generated_IAM_users.addItem(new_credentials)
         self.generated_IAM_users.setCurrentIndex(len(self.credentials) - 1)
-
 
     def on_delete_IAM(self):
         raise NotImplemented()
 
     def on_account_select(self):
-        print("selected")
-
-    def on_active_IAM_select(self):
-        raise NotImplemented()
+        self.current_IAM_account_access_key.setText(self.credentials["account-"+str(self.generated_IAM_users.currentIndex() + 1)]["access_id"])
+        self.current_IAM_account_secret_key.setText(self.credentials["account-" + str(self.generated_IAM_users.currentIndex() + 1)]["secret_id"])
 
 
 
