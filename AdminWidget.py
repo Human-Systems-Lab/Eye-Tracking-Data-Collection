@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtWidgets import QLineEdit
 from PyQt5.QtWidgets import QVBoxLayout
 from PyQt5.QtWidgets import QComboBox
+from PyQt5.QtWidgets import QHBoxLayout
 
 from PyQt5.QtCore import Qt
 
@@ -35,6 +36,11 @@ class AdminWidget(QWidget):
         self.generate_IAM_button.setMaximumWidth(200)
         self.generate_IAM_button.setMaximumHeight(100)
 
+        self.generated_access_label = QLabel("Generated Access:")
+        self.generated_secret_label = QLabel("Generated Secret:")
+        self.current_access_label = QLabel("Selected Access:")
+        self.current_secret_label = QLabel("Selected Secret:")
+
         self.generate_IAM_access_key = QLineEdit("Generated Access ID")
         self.generate_IAM_access_key.setMinimumWidth(200)
         self.generate_IAM_access_key.setMaximumWidth(1000)
@@ -58,21 +64,50 @@ class AdminWidget(QWidget):
         for k in self.credentials.keys():
             self.generated_IAM_users.addItem(k)
 
+        self.account_name_field = QLineEdit("Account Name")
+        self.account_name_field.setMaximumWidth(1000)
+        self.account_name_field.setMinimumWidth(200)
+
+        generated_access_layout = QHBoxLayout()
+        generated_access_layout.addWidget(self.generated_access_label)
+        generated_access_layout.addWidget(self.generate_IAM_access_key)
+        generated_access_widget = QWidget()
+        generated_access_widget.setLayout(generated_access_layout)
+
+        generated_secret_layout = QHBoxLayout()
+        generated_secret_layout.addWidget(self.generated_secret_label)
+        generated_secret_layout.addWidget(self.generate_IAM_secret_access_key)
+        generated_secret_widget = QWidget()
+        generated_secret_widget.setLayout(generated_secret_layout)
+
         self.delete_button = QPushButton("Delete IAM")
         self.delete_button.setMaximumWidth(200)
 
         generate_IAM_layout.addWidget(self.generate_IAM_button)
-        generate_IAM_layout.addWidget(self.generate_IAM_access_key)
-        generate_IAM_layout.addWidget(self.generate_IAM_secret_access_key)
+        generate_IAM_layout.addWidget(generated_access_widget)
+        generate_IAM_layout.addWidget(generated_secret_widget)
+        generate_IAM_layout.setAlignment(Qt.AlignCenter)
 
         generate_IAM_widget = QWidget()
         generate_IAM_widget.setLayout(generate_IAM_layout)
 
+        selected_access_layout = QHBoxLayout()
+        selected_access_layout.addWidget(self.current_access_label)
+        selected_access_layout.addWidget(self.current_IAM_account_access_key)
+        selected_access_widget = QWidget()
+        selected_access_widget.setLayout(selected_access_layout)
+
+        selected_secret_layout = QHBoxLayout()
+        selected_secret_layout.addWidget(self.current_secret_label)
+        selected_secret_layout.addWidget(self.current_IAM_account_secret_key)
+        selected_secret_widget = QWidget()
+        selected_secret_widget.setLayout(selected_secret_layout)
+
         select_IAM_layout = QVBoxLayout()
         select_IAM_layout.addWidget(self.list_label)
         select_IAM_layout.addWidget(self.generated_IAM_users)
-        select_IAM_layout.addWidget(self.current_IAM_account_access_key)
-        select_IAM_layout.addWidget(self.current_IAM_account_secret_key)
+        select_IAM_layout.addWidget(selected_access_widget)
+        select_IAM_layout.addWidget(selected_secret_widget)
         select_IAM_layout.addWidget(self.delete_button)
 
         select_IAM_widget = QWidget()
