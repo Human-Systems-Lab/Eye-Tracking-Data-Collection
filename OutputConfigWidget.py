@@ -216,10 +216,10 @@ class S3TargetOptions(TargetOptions):
             self.access_key_id = "default"
             self.secret_access_key = "default"
             self.bucket_name = ""
-            self.img_dir = ""
-            self.img_fmt = ""
-            self.lbl_dir = ""
-            self.lbl_fmt = ""
+            self.img_dir = "images"
+            self.img_fmt = "YYYYMMDD/hhmmss-sss"
+            self.lbl_dir = "labels"
+            self.lbl_fmt = "YYYYMMDD/hhmmss-sss"
         else:
             self.access_key_id = data["access_key"]
             self.secret_access_key = data["secret_key"]
