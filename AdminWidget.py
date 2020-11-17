@@ -138,12 +138,18 @@ class AdminWidget(QWidget):
         self.set_connections()
         """
         Disables the current and selected account features if there are no active accounts
+        If there are active accounts, it populates the bottom 3 fields
         """
         if not self.current_credentials:
             self.delete_button.setEnabled(False)
             self.account_name_field.setEnabled(False)
             self.current_IAM_account_access_key.setEnabled(False)
             self.current_IAM_account_secret_key.setEnabled(False)
+            self.update()
+        else:
+            self.account_name_field.setText(self.current_credentials)
+            self.current_IAM_account_access_key.setText(self.credentials[self.current_credentials]["access_id"])
+            self.current_IAM_account_secret_key.setText(self.credentials[self.current_credentials]["secret_id"])
             self.update()
 
     def shutdown(self):
