@@ -1,5 +1,6 @@
 import os
 import json
+import random
 
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QLabel
@@ -22,6 +23,9 @@ class AdminWidget(QWidget):
 
         self.disk_dir = disk_dir
 
+        """ 
+        Stores all of the pre-existing active accounts into the credentials dict
+        """
         self.credentials = dict()
         self.current_credentials = ""
         for e in os.listdir(os.path.join(self.disk_dir, "IAM-Accounts")):
@@ -41,19 +45,19 @@ class AdminWidget(QWidget):
         self.current_access_label = QLabel("Selected Access:")
         self.current_secret_label = QLabel("Selected Secret:")
 
-        self.generate_IAM_access_key = QLineEdit("Generated Access ID")
+        self.generate_IAM_access_key = QLineEdit("")
         self.generate_IAM_access_key.setMinimumWidth(200)
         self.generate_IAM_access_key.setMaximumWidth(1000)
 
-        self.generate_IAM_secret_access_key = QLineEdit("Generated Secret Access ID")
+        self.generate_IAM_secret_access_key = QLineEdit("")
         self.generate_IAM_secret_access_key.setMinimumWidth(200)
         self.generate_IAM_secret_access_key.setMaximumWidth(1000)
 
-        self.current_IAM_account_access_key = QLineEdit("Selected Access ID")
+        self.current_IAM_account_access_key = QLineEdit("")
         self.current_IAM_account_access_key.setMinimumWidth(200)
         self.current_IAM_account_access_key.setMaximumWidth(1000)
 
-        self.current_IAM_account_secret_key = QLineEdit("Selected Secret ID")
+        self.current_IAM_account_secret_key = QLineEdit("")
         self.current_IAM_account_secret_key.setMinimumWidth(200)
         self.current_IAM_account_secret_key.setMaximumWidth(1000)
 
@@ -61,6 +65,9 @@ class AdminWidget(QWidget):
 
         self.generated_IAM_users = QComboBox()
         self.generated_IAM_users.setMinimumWidth(100)
+        """
+        Fills the generated_IAM_users list with the items in the credentials dict
+        """
         for k in self.credentials.keys():
             self.generated_IAM_users.addItem(k)
 
@@ -91,6 +98,14 @@ class AdminWidget(QWidget):
         generate_IAM_widget = QWidget()
         generate_IAM_widget.setLayout(generate_IAM_layout)
 
+        self.account_name_label = QLabel("Account Name:")
+        self.account_name_field = QLineEdit("")
+        account_name_layout = QHBoxLayout()
+        account_name_layout.addWidget(self.account_name_label)
+        account_name_layout.addWidget(self.account_name_field)
+        account_name_widget = QWidget()
+        account_name_widget.setLayout(account_name_layout)
+
         selected_access_layout = QHBoxLayout()
         selected_access_layout.addWidget(self.current_access_label)
         selected_access_layout.addWidget(self.current_IAM_account_access_key)
@@ -106,6 +121,7 @@ class AdminWidget(QWidget):
         select_IAM_layout = QVBoxLayout()
         select_IAM_layout.addWidget(self.list_label)
         select_IAM_layout.addWidget(self.generated_IAM_users)
+        select_IAM_layout.addWidget(account_name_widget)
         select_IAM_layout.addWidget(selected_access_widget)
         select_IAM_layout.addWidget(selected_secret_widget)
         select_IAM_layout.addWidget(self.delete_button)
@@ -120,14 +136,20 @@ class AdminWidget(QWidget):
         self.setLayout(layout)
 
         self.set_connections()
-
-    def get_credentials(self):
-        return {
-            'access_id': 'NewlyGeneratedAccessID',
-            'secret_id': 'NewlyGeneratedSecretID'
-        }
+        """
+        Disables the current and selected account features if there are no active accounts
+        """
+        if not self.current_credentials:
+            self.delete_button.setEnabled(False)
+            self.account_name_field.setEnabled(False)
+            self.current_IAM_account_access_key.setEnabled(False)
+            self.current_IAM_account_secret_key.setEnabled(False)
+            self.update()
 
     def shutdown(self):
+        """
+        Called when the program is closed --> Saves the active accounts to respective .json
+        """
         # remove the old files
         for e in os.listdir(os.path.join(self.disk_dir, "IAM-Accounts")):
             if e.split(".")[-1] == "json":
@@ -139,30 +161,46 @@ class AdminWidget(QWidget):
                 json.dump(self.credentials[k], f, indent=4)
 
     def set_connections(self):
+        """
+        Sets up all of the connections between the components of the AdminWidget
+        """
         self.generate_IAM_button.pressed.connect(self.on_generate_IAM)
         self.delete_button.pressed.connect(self.on_delete_IAM)
         self.generated_IAM_users.currentIndexChanged.connect(self.on_account_select)
+        self.account_name_field.returnPressed.connect(self.on_name_change)
 
     def on_generate_IAM(self):
-        # generate the new IAM account
-        # add it to the list of active accounts
-        # fill it into the generated text fields
+        """
+        Called when the Generate IAM button is pressed
+        """
         new_IAM = {
-            'access_id': 'test 1',
-            'secret_id': 'test 2'
+            'access_id': 'test' + str(random.randint(10000, 99999)),
+            'secret_id': 'test' + str(random.randint(10000, 99999))
         }
-
-        self.generate_IAM_access_key.setText("testkey1")
-        self.generate_IAM_secret_access_key.setText("testkey2")
 
         new_credentials = "account-" + str(len(self.credentials) + 1)
 
         self.credentials[new_credentials] = new_IAM
+        self.generate_IAM_access_key.setText(self.credentials[new_credentials]["access_id"])
+        self.generate_IAM_secret_access_key.setText(self.credentials[new_credentials]["secret_id"])
 
         self.generated_IAM_users.addItem(new_credentials)
         self.generated_IAM_users.setCurrentIndex(len(self.credentials) - 1)
 
+    def on_name_change(self) -> None:
+        """
+        Called when the name of an account is changed
+        """
+        nName = self.account_name_field.text()
+        self.credentials[nName] = self.credentials[self.current_credentials]
+        del self.credentials[self.current_credentials]
+        self.current_credentials = nName
+        self.generated_IAM_users.setItemText(self.generated_IAM_users.currentIndex(), nName)
+
     def on_delete_IAM(self) -> None:
+        """
+        Called when the delete button is pressed
+        """
         current_credentials = self.current_credentials
         current_index = self.generated_IAM_users.currentIndex()
         self.generated_IAM_users.removeItem(current_index)
@@ -172,6 +210,9 @@ class AdminWidget(QWidget):
             self.current_credentials = ""
             self.current_IAM_account_access_key.setText("")
             self.current_IAM_account_secret_key.setText("")
+            self.generate_IAM_access_key.setText("")
+            self.generate_IAM_secret_access_key.setText("")
+            self.account_name_field.setText("")
             return
 
         if current_index != 0:
@@ -181,22 +222,29 @@ class AdminWidget(QWidget):
         self.generated_IAM_users.setCurrentIndex(current_index)
 
     def on_account_select(self, i: int) -> None:
+        """
+        Called when an account is selected from the list of the current accounts
+        """
         if i == -1:
             self.current_credentials = ""
             self.delete_button.setEnabled(False)
+            self.account_name_field.setText("")
             self.current_IAM_account_access_key.setText("")
             self.current_IAM_account_secret_key.setText("")
             self.current_IAM_account_access_key.setEnabled(False)
             self.current_IAM_account_secret_key.setEnabled(False)
+            self.account_name_field.setEnabled(False)
             self.update()
             return
 
         self.current_credentials = self.generated_IAM_users.itemText(i)
         self.delete_button.setEnabled(True)
+        self.account_name_field.setText(self.current_credentials)
         self.current_IAM_account_access_key.setText(self.credentials[self.current_credentials]["access_id"])
         self.current_IAM_account_secret_key.setText(self.credentials[self.current_credentials]["secret_id"])
         self.current_IAM_account_access_key.setEnabled(True)
         self.current_IAM_account_secret_key.setEnabled(True)
+        self.account_name_field.setEnabled(True)
 
 
 
