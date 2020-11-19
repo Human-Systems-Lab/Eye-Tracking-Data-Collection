@@ -1,5 +1,7 @@
 import os
 import json
+import types
+from typing import List
 
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QLabel
@@ -7,6 +9,8 @@ from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtWidgets import QLineEdit
 from PyQt5.QtWidgets import QComboBox
 from PyQt5.QtWidgets import QSlider
+from PyQt5.QtWidgets import QCheckBox
+from PyQt5.QtWidgets import QRadioButton
 from PyQt5.QtWidgets import QVBoxLayout
 from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene
@@ -16,9 +20,89 @@ from PyQt5 import QtGui
 from PyQt5.QtCore import Qt
 
 
+class QMultiSelect(QWidget):
+    def __init__(self, labels: List[str], horizontal=False, on_select=None):
+        super(QMultiSelect, self).__init__()
+        self.options = dict()
+        self.on_select = on_select
+
+        def on_button_select(this, *_):
+            this.blockSignals(True)
+            for k in self.options:
+                self.options[k][0].setChecked(False)
+                self.options[k][1] = False
+            self.options[this.lbl][0].setChecked(True)
+            self.options[this.lbl][1] = True
+
+            if self.on_select is not None:
+                self.on_select()
+
+            this.blockSignals(False)
+
+        layout = labels_layout = button_layout = None
+        if horizontal:
+            layout = QHBoxLayout()
+        else:
+            labels_layout = QVBoxLayout()
+            button_layout = QVBoxLayout()
+
+        for i, lbl in enumerate(labels):
+            button = QRadioButton()
+            button.setFixedHeight(25)
+            label = QLabel(lbl)
+            label.setFixedHeight(25)
+            if horizontal:
+                layout.addWidget(label)
+                layout.addWidget(button)
+                layout.addSpacing(25)
+            else:
+                labels_layout.addWidget(label, Qt.AlignLeft)
+                button_layout.addWidget(button)
+            self.options[lbl] = [button, False]
+            button.lbl = lbl
+            button.on_button_select = types.MethodType(on_button_select, button)
+            # noinspection PyUnresolvedReferences
+            button.toggled.connect(button.on_button_select)
+
+        self.options[labels[0]][0].on_button_select(self.options[labels[0]][0])
+
+        if horizontal:
+            self.setFixedHeight(30)
+        else:
+            labels_widget = QWidget()
+            labels_widget.setLayout(labels_layout)
+            labels_widget.setFixedHeight(25 * len(labels))
+            button_widget = QWidget()
+            button_widget.setLayout(button_layout)
+            button_widget.setFixedHeight(25 * len(labels))
+            button_widget.setMaximumWidth(50)
+
+            layout = QVBoxLayout()
+            layout.addWidget(labels_widget)
+            layout.addWidget(button_widget)
+
+        layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.setLayout(layout)
+
+    @property
+    def selection(self):
+        for k in self.options:
+            if self.options[k][1]:
+                return k
+        return None
+
+    @selection.setter
+    def selection(self, val):
+        if val not in self.options:
+            return
+
+        self.options[val][0].on_button_select(self.options[val][0])
+
+
 class PromptSelector(QWidget):
     def __init__(self, val, color):
         super(PromptSelector, self).__init__()
+        self.setMaximumHeight(100)
 
         self.max_size = 30
         self.edge_space = 10
@@ -59,8 +143,10 @@ class PromptSelector(QWidget):
         color_layout = QHBoxLayout()
         color_layout.addWidget(QLabel("R"))
         color_layout.addWidget(self.r_slider)
+        color_layout.addSpacing(25)
         color_layout.addWidget(QLabel("G"))
         color_layout.addWidget(self.g_slider)
+        color_layout.addSpacing(25)
         color_layout.addWidget(QLabel("B"))
         color_layout.addWidget(self.b_slider)
         color_widget = QWidget()
@@ -125,32 +211,47 @@ class PromptOptions(QWidget):
     def __init__(self, data=None):
         super(PromptOptions, self).__init__()
 
+        self.corner_prompts = QCheckBox("Calibration")
+        self.metadata = QCheckBox("Save Metadata")
+        self.prev_trigger = None
+        self.trigger = None
+        self.trigger = QMultiSelect(["Mouse", "Timer"], True, self.on_trigger_select)
+
+        self.trigger_options_map = {"Mouse": self.MouseTrigger, "Timer": self.TimerTrigger}
+
         if data is None:
             self.prompt_selector = PromptSelector(
                 10,
                 (255, 0, 0)
             )
-            self.corner_prompts = True
-            self.metadata = True
-            self.trigger = "mouse"
+            self.corner_prompts.setChecked(True)
+            self.metadata.setChecked(True)
+            self.trigger.selection = "Mouse"
+            self.prev_trigger = "Mouse"
             self.trigger_options = self.MouseTrigger()
         else:
-            self.prompt_selector = PromptSelector(
-                data["prompt_size"],
-                data["prompt_color"]
-            )
-            self.corner_prompts = data["corner_prompts"]
-            self.metadata = data["metadata"]
-            self.trigger = data["trigger"]
-            if self.trigger == "mouse":
+            if data["trigger"] == "Mouse":
                 self.trigger_options = self.MouseTrigger(data["trigger_options"])
-            elif self.trigger == "timer":
+            elif data["trigger"] == "Timer":
                 self.trigger_options = self.TimerTrigger(data["trigger_options"])
             else:
                 raise ValueError("Invalid trigger type")
 
+            self.prompt_selector = PromptSelector(
+                data["prompt_size"],
+                data["prompt_color"]
+            )
+            self.corner_prompts.setChecked(data["corner_prompts"])
+            self.metadata.setChecked(data["metadata"])
+            self.trigger.selection = data["trigger"]
+            self.prev_trigger = data["trigger"]
+
         layout = QVBoxLayout()
         layout.addWidget(self.prompt_selector)
+        layout.addWidget(self.corner_prompts)
+        layout.addWidget(self.metadata)
+        layout.addWidget(self.trigger)
+        layout.addWidget(self.trigger_options)
         layout.setAlignment(Qt.AlignTop)
         self.setLayout(layout)
 
@@ -158,11 +259,24 @@ class PromptOptions(QWidget):
         return {
             "prompt_size": self.prompt_selector.value(),
             "prompt_color": self.prompt_selector.color(),
-            "corner_prompts": self.corner_prompts,
-            "metadata": self.metadata,
-            "trigger": self.trigger,
+            "corner_prompts": self.corner_prompts.isChecked(),
+            "metadata": self.metadata.isChecked(),
+            "trigger": self.trigger.selection,
             "trigger_options": self.trigger_options.get_config()
         }
+
+    def on_trigger_select(self):
+        if self.prev_trigger is None or self.trigger is None or self.prev_trigger == self.trigger.selection:
+            return
+
+        self.prev_trigger = self.trigger.selection
+
+        self.layout().removeWidget(self.trigger_options)
+        self.trigger_options.setHidden(True)
+        self.trigger_options.destroy()
+        self.trigger_options = self.trigger_options_map[self.prev_trigger]()
+        self.layout().addWidget(self.trigger_options)
+        self.update()
 
     class MouseTrigger(QWidget):
         """
@@ -170,6 +284,11 @@ class PromptOptions(QWidget):
         """
         def __init__(self, data=None):
             super(PromptOptions.MouseTrigger, self).__init__()
+
+            layout = QVBoxLayout()
+            layout.addWidget(QLabel("Mouse Trigger"))
+            layout.setAlignment(Qt.AlignTop)
+            self.setLayout(layout)
 
         def get_config(self):
             return {}
@@ -182,6 +301,11 @@ class PromptOptions(QWidget):
         """
         def __init__(self, data=None):
             super(PromptOptions.TimerTrigger, self).__init__()
+
+            layout = QVBoxLayout()
+            layout.addWidget(QLabel("Timer Trigger"))
+            layout.setAlignment(Qt.AlignTop)
+            self.setLayout(layout)
 
         def get_config(self):
             return {}
