@@ -35,6 +35,7 @@ class LoginWidget(QWidget):
         self.password_text_field = QLineEdit("")
         self.password_text_field.setMinimumWidth(200)
         self.password_text_field.setMaximumWidth(1000)
+        self.password_text_field.setEchoMode(QLineEdit.Password)
 
         # username label and text field
         username_layout = QHBoxLayout()
