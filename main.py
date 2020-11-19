@@ -17,6 +17,8 @@ from OutputConfigWidget import OutputConfigWidget
 from PromptConfigWidget import PromptConfigWidget
 from AdminWidget import AdminWidget
 from Prompter import EyePrompt
+from MenuBar import MenuBar
+from LoginWindow import LoginWidget
 
 disk_dir = ""
 
@@ -51,6 +53,9 @@ class MainWindow(QMainWindow):
         admin_widget.setFloating(False)
         self.addDockWidget(Qt.LeftDockWidgetArea, admin_widget)
 
+        # menu bar
+        self.menu_bar = MenuBar(disk_dir, self)
+
     def shutdown(self):
         self.output_config_widget.shutdown()
         self.prompt_config_widget.shutdown()
@@ -68,6 +73,15 @@ class MainWindow(QMainWindow):
                 prompter.startPrompts()
             except ValueError:
                 pass
+
+    # function to create login window
+    @staticmethod
+    def drawLoginPopup(self):
+        self.admin_login_widget = LoginWidget(disk_dir)
+        login_widget = QDockWidget("Administrator Login", self)
+        login_widget.setWidget(self.admin_login_widget)
+        login_widget.setFloating(True)
+        self.addDockWidget(Qt.LeftDockWidgetArea, login_widget)
 
 
 # used to include the icon in the pyinstall build
