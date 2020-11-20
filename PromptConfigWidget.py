@@ -2,6 +2,7 @@ import os
 import json
 import types
 from typing import List
+from functools import wraps
 
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QLabel
@@ -20,12 +21,28 @@ from PyQt5 import QtGui
 from PyQt5.QtCore import Qt
 
 
+def no_recursion(default=None):
+    def decorator(f):
+        @wraps(f)
+        def func(*args, **kwargs):
+            if hasattr(func, "_executing") and func._executing:
+                return default
+            func._executing = True
+            ret = f(*args, **kwargs)
+            func._executing = False
+            return ret
+
+        return func
+    return decorator
+
+
 class QMultiSelect(QWidget):
     def __init__(self, labels: List[str], horizontal=False, on_select=None):
         super(QMultiSelect, self).__init__()
         self.options = dict()
         self.on_select = on_select
 
+        @no_recursion()
         def on_button_select(this, *_):
             this.blockSignals(True)
             for k in self.options:
@@ -64,7 +81,7 @@ class QMultiSelect(QWidget):
             # noinspection PyUnresolvedReferences
             button.toggled.connect(button.on_button_select)
 
-        self.options[labels[0]][0].on_button_select(self.options[labels[0]][0])
+        self.options[labels[0]][0].on_button_select()
 
         if horizontal:
             self.setFixedHeight(30)
@@ -96,7 +113,7 @@ class QMultiSelect(QWidget):
         if val not in self.options:
             return
 
-        self.options[val][0].on_button_select(self.options[val][0])
+        self.options[val][0].on_button_select()
 
 
 class PromptSelector(QWidget):
@@ -302,13 +319,84 @@ class PromptOptions(QWidget):
         def __init__(self, data=None):
             super(PromptOptions.TimerTrigger, self).__init__()
 
+            if data is None:
+                self.capture_delay = 500
+                self.prompt_time = 2500
+                self.sample_num = 5
+            else:
+                self.capture_delay = data["capture_delay"]
+                self.prompt_time = data["prompt_time"]
+                self.sample_num = data["sample_num"]
+
+            self.capture_delay_slider = QSlider(Qt.Horizontal)
+            self.capture_delay_slider.setRange(0, 900)
+            self.capture_delay_slider.setValue(self.capture_delay)
+            self.capture_delay_label = QLabel("%3d ms" % (self.capture_delay,))
+            self.capture_delay_label.setFont(QtGui.QFont("Courier"))
+
+            capture_delay_layout = QHBoxLayout()
+            capture_delay_layout.addWidget(self.capture_delay_slider)
+            capture_delay_layout.addWidget(self.capture_delay_label)
+            capture_delay_widget = QWidget()
+            capture_delay_widget.setLayout(capture_delay_layout)
+
+            self.prompt_time_slider = QSlider(Qt.Horizontal)
+            self.prompt_time_slider.setRange(1000, 5000)
+            self.prompt_time_slider.setValue(self.prompt_time)
+            self.prompt_time_label = QLabel("%5.3f s" % (self.prompt_time/1000,))
+            self.prompt_time_label.setFont(QtGui.QFont("Courier"))
+
+            prompt_time_layout = QHBoxLayout()
+            prompt_time_layout.addWidget(self.prompt_time_slider)
+            prompt_time_layout.addWidget(self.prompt_time_label)
+            prompt_time_widget = QWidget()
+            prompt_time_widget.setLayout(prompt_time_layout)
+
+            self.sample_num_slider = QSlider(Qt.Horizontal)
+            self.sample_num_slider.setRange(1, 10)
+            self.sample_num_slider.setValue(self.sample_num)
+            self.sample_num_label = QLabel(str(self.sample_num))
+            self.sample_num_label.setFont(QtGui.QFont("Courier"))
+
+            sample_num_layout = QHBoxLayout()
+            sample_num_layout.addWidget(self.sample_num_slider)
+            sample_num_layout.addWidget(self.sample_num_label)
+            sample_num_widget = QWidget()
+            sample_num_widget.setLayout(sample_num_layout)
+
             layout = QVBoxLayout()
-            layout.addWidget(QLabel("Timer Trigger"))
+            layout.addWidget(capture_delay_widget)
+            layout.addWidget(prompt_time_widget)
+            layout.addWidget(sample_num_widget)
             layout.setAlignment(Qt.AlignTop)
             self.setLayout(layout)
 
+            self.set_connections()
+
+        # noinspection PyUnresolvedReferences
+        def set_connections(self):
+            self.capture_delay_slider.valueChanged.connect(self.on_capture_delay)
+            self.prompt_time_slider.valueChanged.connect(self.on_prompt_time)
+            self.sample_num_slider.valueChanged.connect(self.on_sample_num)
+
         def get_config(self):
-            return {}
+            return {
+                "capture_delay": self.capture_delay,
+                "prompt_time": self.prompt_time,
+                "sample_num": self.sample_num
+            }
+
+        def on_capture_delay(self):
+            self.capture_delay = self.capture_delay_slider.value()
+            self.capture_delay_label.setText("%3d ms" % (self.capture_delay,))
+
+        def on_prompt_time(self):
+            self.prompt_time = self.prompt_time_slider.value()
+            self.prompt_time_label.setText("%5.3f s" % (self.prompt_time/1000,))
+
+        def on_sample_num(self):
+            self.sample_num = self.sample_num_slider.value()
+            self.sample_num_label.setText(str(self.sample_num))
 
 
 class PromptConfigWidget(QWidget):
@@ -361,7 +449,7 @@ class PromptConfigWidget(QWidget):
         configs_widget = QLabel("Configurations: ")
 
         if self.current_config:
-            self.config_options = PromptOptions()
+            self.config_options = PromptOptions(self.configs[self.current_config])
         else:
             self.config_options = QWidget()
 
