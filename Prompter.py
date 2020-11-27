@@ -22,6 +22,7 @@ from util import *
 class EyePrompt(QGraphicsView):
     def __init__(self, config, serializer: Serializer):
         super(EyePrompt, self).__init__()
+        self.setAlignment(Qt.AlignTop | Qt.AlignLeft)
 
         self._m_scene = QGraphicsScene()
         self.setScene(self._m_scene)
@@ -50,20 +51,22 @@ class EyePrompt(QGraphicsView):
         raise NotImplementedError("EyePrompt.shutdown is an abstract method")
 
     @property
+    @debug_fn(use_thread_id=True, print_args=True)
     def prompt_loc(self):
         with self.prompt_loc_lock:
             loc = self._prompt_loc
         return loc
 
     @prompt_loc.setter
+    @debug_fn(use_thread_id=True, print_args=True)
     def prompt_loc(self, n_loc):
         with self._prompt_loc_lock:
             self._prompt_loc = n_loc
         x_loc = int(n_loc[0] * self._m_scene.width())
         y_loc = int(n_loc[1] * self._m_scene.height())
         self._m_scene.clear()
-        self._m_scene.addEllipse(x_loc, y_loc, self.prompt_size, self.prompt_size)
-        self.update()
+        self._m_scene.addEllipse(x_loc, y_loc, self.prompt_size, self.prompt_size, brush=self.prompt_brush)
+        self.invalidateScene()
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         k = e.key()
@@ -127,22 +130,80 @@ class TimerPrompt(EyePrompt):
         super(TimerPrompt, self).__init__(config, serializer)
         self.setCursor(Qt.BlankCursor)
 
-        self.prompt_loc_th = None
         self.capture_th = None
 
+        # thread safe variables
+        self._start_time = None
+        self._start_time_lock = Lock()
+        self._running = False
+        self._running_lock = Lock()
+
+        timer_config = config["trigger_options"]
+        self.prompt_time = timer_config["prompt_time"]
+        self.capture_delay = timer_config["capture_delay"]
+        self.sample_num = timer_config["sample_num"]
+
+    @property
+    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
+    def start_time(self):
+        with self._start_time_lock:
+            return self._start_time
+
+    @start_time.setter
+    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
+    def start_time(self, val):
+        with self._start_time_lock:
+            self._start_time = val
+
+    @property
+    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
+    def running(self):
+        with self._running_lock:
+            return self._running
+
+    @running.setter
+    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
+    def running(self, val):
+        with self._running_lock:
+            self._running = val
+
+    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
     def start_prompts(self):
-        self.prompt_loc_th = threading.Thread(target=self.run_prompt_loc)
+        if self.corner_prompt_idx != 0:
+            self.prompt_loc = (0, 0)
+        else:
+            self.prompt_loc = (
+                random.uniform(0, 1),
+                random.uniform(0, 1)
+            )
+
         self.capture_th = threading.Thread(target=self.run_capture)
+        self.start_time = time.time()
+        self.running = True
+        self.capture_th.start()
 
-    def run_prompt_loc(self):
-        pass
-
+    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
     def run_capture(self):
-        pass
+        idx = 0
+        while self.running:
+            time.sleep(time.time() - self.start_time - idx * self.prompt_time)
+            if self.corner_prompt_idx != 0:
+                if self.corner_prompt_idx == 3:
+                    self.prompt_loc = (0, 1)
+                elif self.corner_prompt_idx == 2:
+                    self.prompt_loc = (1, 1)
+                else:
+                    self.prompt_loc = (1, 0)
+                self.corner_prompt_idx -= 1
+            else:
+                self.prompt_loc = (
+                    random.uniform(0, 1),
+                    random.uniform(0, 1)
+                )
 
+    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
     def shutdown(self):
-        if self.prompt_loc_th.is_alive():
-            self.prompt_loc_th.join()
+        print("shutdown")
         if self.capture_th.is_alive():
             self.capture_th.join()
 
