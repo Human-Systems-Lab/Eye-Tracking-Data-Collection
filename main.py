@@ -15,7 +15,7 @@ from PyQt5.QtCore import Qt
 
 from OutputConfigWidget import OutputConfigWidget
 from PromptConfigWidget import PromptConfigWidget
-from Prompter import EyePrompt
+from Prompter import create_prompter
 
 disk_dir = ""
 
@@ -24,6 +24,7 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
         self.setCursor(Qt.ArrowCursor)
+        self.setFocusPolicy(Qt.StrongFocus)
 
         self.setWindowIcon(QtGui.QIcon(resource_path("assets/HSL-logo.png")))
         self.setWindowTitle("HSL | Eye Tracking Data Collection")
@@ -51,14 +52,15 @@ class MainWindow(QMainWindow):
         k = e.key()
         modifiers = QApplication.keyboardModifiers()
         if k == Qt.Key_R and modifiers == Qt.ControlModifier:
-            try:
-                prompter = EyePrompt()
-                prompter.showFullScreen()
-                prompter.cycleLength = 2
-                prompter.serializer = self.output_config_widget.create_serializer()
-                prompter.startPrompts()
-            except ValueError:
-                pass
+            config = self.prompt_config_widget.get_config()
+            serializer = self.output_config_widget.create_serializer()
+            if config is None:
+                return super().keyPressEvent(e)
+            prompter = create_prompter(config, serializer)
+            prompter.showMaximized()
+            prompter.start_prompts()
+        else:
+            return super().keyPressEvent(e)
 
 
 # used to include the icon in the pyinstall build

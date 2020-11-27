@@ -1,8 +1,7 @@
 import os
 import json
 import types
-from typing import List
-from functools import wraps
+from typing import Optional, Dict, List
 
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QLabel
@@ -20,20 +19,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5.QtCore import Qt
 
-
-def no_recursion(default=None):
-    def decorator(f):
-        @wraps(f)
-        def func(*args, **kwargs):
-            if hasattr(func, "_executing") and func._executing:
-                return default
-            func._executing = True
-            ret = f(*args, **kwargs)
-            func._executing = False
-            return ret
-
-        return func
-    return decorator
+from util import *
 
 
 class QMultiSelect(QWidget):
@@ -481,6 +467,11 @@ class PromptConfigWidget(QWidget):
         for k in self.configs:
             with open(os.path.join(self.disk_dir, "PromptConfigurations", k + ".json"), "w") as f:
                 json.dump(self.configs[k], f, indent=4)
+
+    def get_config(self) -> Optional[Dict]:
+        if not self.current_config:
+            return
+        return self.config_options.get_config()
 
     # noinspection PyUnresolvedReferences
     def set_connections(self):
