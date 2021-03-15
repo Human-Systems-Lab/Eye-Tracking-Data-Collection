@@ -204,11 +204,11 @@ class PromptSelector(QWidget):
 class PromptOptions(QWidget):
     """
     Options:
-        prompt_size: int                  Size of the prompt on the screen
-        prompt_color: (int, int, int)     Color of the prompt in RGB
-        corner_prompts: True | False      Start with a prompt in each corner
-        metadata: True | False            Whether to include metadata in the label file
-        trigger: mouse | timer            Trigger for changing prompt position
+        prompt_size: int                       Size of the prompt on the screen
+        prompt_color: (int, int, int)          Color of the prompt in RGB
+        corner_prompts: True | False           Start with a prompt in each corner
+        metadata: True | False                 Whether to include metadata in the label file
+        prompt_type: mouse | timer | smooth    Trigger for changing prompt position
     """
 
     def __init__(self, data=None):
@@ -216,11 +216,15 @@ class PromptOptions(QWidget):
 
         self.corner_prompts = QCheckBox("Calibration")
         self.metadata = QCheckBox("Save Metadata")
-        self.prev_trigger = None
-        self.trigger = None
-        self.trigger = QMultiSelect(["Mouse", "Timer"], True, self.on_trigger_select)
+        self.prev_prompt_config = None
+        self.prompt_config = None
+        self.prompt_config = QMultiSelect(["Mouse", "Timer", "Smooth"], True, self.on_trigger_select)
 
-        self.trigger_options_map = {"Mouse": self.MouseTrigger, "Timer": self.TimerTrigger}
+        self.trigger_options_map = {
+            "Mouse":  self.MousePromptConfig,
+            "Timer":  self.TimerPromptConfig,
+            "Smooth": self.SmoothPromptConfig
+        }
 
         if data is None:
             self.prompt_selector = PromptSelector(
@@ -229,14 +233,16 @@ class PromptOptions(QWidget):
             )
             self.corner_prompts.setChecked(True)
             self.metadata.setChecked(True)
-            self.trigger.selection = "Mouse"
-            self.prev_trigger = "Mouse"
-            self.trigger_options = self.MouseTrigger()
+            self.prompt_config.selection = "Mouse"
+            self.prev_prompt_config = "Mouse"
+            self.prompt_config_options = self.MousePromptConfig()
         else:
-            if data["trigger"] == "Mouse":
-                self.trigger_options = self.MouseTrigger(data["trigger_options"])
-            elif data["trigger"] == "Timer":
-                self.trigger_options = self.TimerTrigger(data["trigger_options"])
+            if data["prompt_config"] == "Mouse":
+                self.prompt_config_options = self.MousePromptConfig(data["prompt_config_options"])
+            elif data["prompt_config"] == "Timer":
+                self.prompt_config_options = self.TimerPromptConfig(data["prompt_config_options"])
+            elif data["prompt_config"] == "Smooth":
+                self.prompt_config_options = self.SmoothPromptConfig(data["prompt_config_options"])
             else:
                 raise ValueError("Invalid trigger type")
 
@@ -246,47 +252,57 @@ class PromptOptions(QWidget):
             )
             self.corner_prompts.setChecked(data["corner_prompts"])
             self.metadata.setChecked(data["metadata"])
-            self.trigger.selection = data["trigger"]
-            self.prev_trigger = data["trigger"]
+            self.prompt_config.selection = data["prompt_config"]
+            self.prev_prompt_config = data["prompt_config"]
 
         layout = QVBoxLayout()
         layout.addWidget(self.prompt_selector)
         layout.addWidget(self.corner_prompts)
         layout.addWidget(self.metadata)
-        layout.addWidget(self.trigger)
-        layout.addWidget(self.trigger_options)
+        layout.addWidget(self.prompt_config)
+        layout.addWidget(self.prompt_config_options)
         layout.setAlignment(Qt.AlignTop)
         self.setLayout(layout)
 
     def get_config(self):
         return {
-            "prompt_size": self.prompt_selector.value(),
-            "prompt_color": self.prompt_selector.color(),
-            "corner_prompts": self.corner_prompts.isChecked(),
-            "metadata": self.metadata.isChecked(),
-            "trigger": self.trigger.selection,
-            "trigger_options": self.trigger_options.get_config()
+            "prompt_size":           self.prompt_selector.value(),
+            "prompt_color":          self.prompt_selector.color(),
+            "corner_prompts":        self.corner_prompts.isChecked(),
+            "metadata":              self.metadata.isChecked(),
+            "prompt_config":         self.prompt_config.selection,
+            "prompt_config_options": self.prompt_config_options.get_config()
         }
 
     def on_trigger_select(self):
-        if self.prev_trigger is None or self.trigger is None or self.prev_trigger == self.trigger.selection:
+        if (self.prev_prompt_config is None or
+                self.prompt_config is None or
+                self.prev_prompt_config == self.prompt_config.selection):
             return
 
-        self.prev_trigger = self.trigger.selection
+        self.prev_prompt_config = self.prompt_config.selection
 
-        self.layout().removeWidget(self.trigger_options)
-        self.trigger_options.setHidden(True)
-        self.trigger_options.destroy()
-        self.trigger_options = self.trigger_options_map[self.prev_trigger]()
-        self.layout().addWidget(self.trigger_options)
+        self.layout().removeWidget(self.prompt_config_options)
+        self.prompt_config_options.setHidden(True)
+        self.prompt_config_options.destroy()
+        self.prompt_config_options = self.trigger_options_map[self.prev_prompt_config]()
+        self.layout().addWidget(self.prompt_config_options)
         self.update()
 
-    class MouseTrigger(QWidget):
+    class IPromptConfig(QWidget):
+        def __init__(self):
+            super(PromptOptions.IPromptConfig, self).__init__()
+
+        def get_config(self):
+            raise NotImplementedError("IPromptConfig is an abstract class")
+
+    class MousePromptConfig(IPromptConfig):
         """
         Options:
         """
+
         def __init__(self, data=None):
-            super(PromptOptions.MouseTrigger, self).__init__()
+            super(PromptOptions.MousePromptConfig, self).__init__()
 
             layout = QVBoxLayout()
             layout.addWidget(QLabel("Mouse Trigger"))
@@ -296,14 +312,15 @@ class PromptOptions(QWidget):
         def get_config(self):
             return {}
 
-    class TimerTrigger(QWidget):
+    class TimerPromptConfig(IPromptConfig):
         """
         Options:
             capture_delay: float              Time in seconds to wait before capturing data
             capture_count: int                Number of image/label pairs to capture per
         """
+
         def __init__(self, data=None):
-            super(PromptOptions.TimerTrigger, self).__init__()
+            super(PromptOptions.TimerPromptConfig, self).__init__()
 
             if data is None:
                 self.capture_delay = 500
@@ -329,7 +346,7 @@ class PromptOptions(QWidget):
             self.prompt_time_slider = QSlider(Qt.Horizontal)
             self.prompt_time_slider.setRange(1000, 5000)
             self.prompt_time_slider.setValue(self.prompt_time)
-            self.prompt_time_label = QLabel("%5.3f s" % (self.prompt_time/1000,))
+            self.prompt_time_label = QLabel("%5.3f s" % (self.prompt_time / 1000,))
             self.prompt_time_label.setFont(QtGui.QFont("Courier"))
 
             prompt_time_layout = QHBoxLayout()
@@ -368,8 +385,8 @@ class PromptOptions(QWidget):
         def get_config(self):
             return {
                 "capture_delay": self.capture_delay,
-                "prompt_time": self.prompt_time,
-                "sample_num": self.sample_num
+                "prompt_time":   self.prompt_time,
+                "sample_num":    self.sample_num
             }
 
         def on_capture_delay(self):
@@ -378,11 +395,18 @@ class PromptOptions(QWidget):
 
         def on_prompt_time(self):
             self.prompt_time = self.prompt_time_slider.value()
-            self.prompt_time_label.setText("%5.3f s" % (self.prompt_time/1000,))
+            self.prompt_time_label.setText("%5.3f s" % (self.prompt_time / 1000,))
 
         def on_sample_num(self):
             self.sample_num = self.sample_num_slider.value()
             self.sample_num_label.setText(str(self.sample_num))
+
+    class SmoothPromptConfig(IPromptConfig):
+        def __init__(self, data=None):
+            super(PromptOptions.SmoothPromptConfig, self).__init__()
+
+        def get_config(self):
+            return {}
 
 
 class PromptConfigWidget(QWidget):

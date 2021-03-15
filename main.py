@@ -57,7 +57,7 @@ class MainWindow(QMainWindow):
             if config is None:
                 return super().keyPressEvent(e)
             prompter = create_prompter(config, serializer)
-            prompter.showMaximized()
+            prompter.showFullScreen()
             prompter.start_prompts()
         else:
             return super().keyPressEvent(e)

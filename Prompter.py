@@ -25,6 +25,7 @@ class EyePrompt(QGraphicsView):
         self.setAlignment(Qt.AlignTop | Qt.AlignLeft)
 
         self._m_scene = QGraphicsScene()
+        self._m_scene.setSceneRect(0, 0, self.width(), self.height())
         self.setScene(self._m_scene)
 
         self.prompt_size = config["prompt_size"]
@@ -51,22 +52,25 @@ class EyePrompt(QGraphicsView):
         raise NotImplementedError("EyePrompt.shutdown is an abstract method")
 
     @property
-    @debug_fn(use_thread_id=True, print_args=True)
     def prompt_loc(self):
         with self.prompt_loc_lock:
-            loc = self._prompt_loc
-        return loc
+            return self._prompt_loc
 
     @prompt_loc.setter
-    @debug_fn(use_thread_id=True, print_args=True)
     def prompt_loc(self, n_loc):
         with self._prompt_loc_lock:
             self._prompt_loc = n_loc
         x_loc = int(n_loc[0] * self._m_scene.width())
         y_loc = int(n_loc[1] * self._m_scene.height())
         self._m_scene.clear()
-        self._m_scene.addEllipse(x_loc, y_loc, self.prompt_size, self.prompt_size, brush=self.prompt_brush)
-        self.invalidateScene()
+        self._m_scene.addEllipse(
+            x_loc - self.prompt_size/2,
+            y_loc - self.prompt_size/2,
+            self.prompt_size,
+            self.prompt_size,
+            brush=self.prompt_brush
+        )
+        self._m_scene.update()
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         k = e.key()
@@ -139,30 +143,26 @@ class TimerPrompt(EyePrompt):
         self._running_lock = Lock()
 
         timer_config = config["trigger_options"]
-        self.prompt_time = timer_config["prompt_time"]
-        self.capture_delay = timer_config["capture_delay"]
+        self.prompt_time = timer_config["prompt_time"] / 1e3
+        self.capture_delay = timer_config["capture_delay"] / 1e3
         self.sample_num = timer_config["sample_num"]
 
     @property
-    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
     def start_time(self):
         with self._start_time_lock:
             return self._start_time
 
     @start_time.setter
-    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
     def start_time(self, val):
         with self._start_time_lock:
             self._start_time = val
 
     @property
-    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
     def running(self):
         with self._running_lock:
             return self._running
 
     @running.setter
-    @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
     def running(self, val):
         with self._running_lock:
             self._running = val
@@ -184,9 +184,16 @@ class TimerPrompt(EyePrompt):
 
     @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
     def run_capture(self):
-        idx = 0
-        while self.running:
-            time.sleep(time.time() - self.start_time - idx * self.prompt_time)
+        idx = 1
+        while True:
+            if not self.running:
+                return
+            time.sleep(idx * self.prompt_time + self.start_time - time.time())
+
+            print(self.corner_prompt_idx)
+            if self.corner_prompt_idx == 0:
+                exit(0)
+
             if self.corner_prompt_idx != 0:
                 if self.corner_prompt_idx == 3:
                     self.prompt_loc = (0, 1)
@@ -200,12 +207,21 @@ class TimerPrompt(EyePrompt):
                     random.uniform(0, 1),
                     random.uniform(0, 1)
                 )
+            idx += 1
 
     @debug_fn(use_thread_id=True, print_args=True, member_fn=True)
     def shutdown(self):
-        print("shutdown")
+        self.running = False
         if self.capture_th.is_alive():
             self.capture_th.join()
+
+
+class SmoothPrompt(EyePrompt):
+    def start_prompts(self):
+        pass
+
+    def shutdown(self):
+        pass
 
 
 def create_prompter(config, serializer) -> Optional[EyePrompt]:
