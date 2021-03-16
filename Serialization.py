@@ -79,7 +79,7 @@ class Serializer(ABC):
         Serializes a frame of data to the selected location
 
         :param point: the location on the screen where the person was prompted to look
-        :param frame: picture of person looking at point
+        :param frame: picture of person looking at point as a numpy array (cv2.*Capture)
         """
 
 

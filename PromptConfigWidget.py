@@ -294,7 +294,7 @@ class PromptOptions(QWidget):
             super(PromptOptions.IPromptConfig, self).__init__()
 
         def get_config(self):
-            raise NotImplementedError("IPromptConfig is an abstract class")
+            raise NotImplementedError("IPromptConfig.get_config is an abstract method")
 
     class MousePromptConfig(IPromptConfig):
         """
@@ -315,8 +315,9 @@ class PromptOptions(QWidget):
     class TimerPromptConfig(IPromptConfig):
         """
         Options:
-            capture_delay: float              Time in seconds to wait before capturing data
-            capture_count: int                Number of image/label pairs to capture per
+            capture_delay: float    Time in seconds to wait before capturing data
+            prompt_time: float      Amount of time a prompt lasts
+            sample_num: int         Number of image/label pairs to capture per prompt location
         """
 
         def __init__(self, data=None):
